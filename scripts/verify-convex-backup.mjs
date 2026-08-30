@@ -1,0 +1,16 @@
+import { readFile } from 'node:fs/promises';
+import { parseEnv } from 'node:util';
+import { createHash } from 'node:crypto';
+import { ConvexHttpClient } from 'convex/browser';
+import { makeFunctionReference } from 'convex/server';
+const settings=parseEnv(await readFile('.dev.vars','utf8'));
+const backup=JSON.parse(await readFile(process.argv[2],'utf8'));
+const client=new ConvexHttpClient(settings.CONVEX_URL,{logger:false});
+const saved=await client.query(makeFunctionReference('precedent:read'),{secret:settings.PRECEDENT_BRIDGE_SECRET});
+if(saved.error||saved.revision!==backup.revision||saved.data!==backup.data)throw Error('Convex data does not exactly match the backup; do not switch.');
+const denied=await client.query(makeFunctionReference('precedent:read'),{secret:'invalid-migration-test-key'});
+if(denied.error?.status!==401)throw Error('Unauthenticated read was not denied.');
+const blocked=await client.mutation(makeFunctionReference('precedent:compareAndSwap'),{secret:'invalid-migration-test-key',revision:saved.revision,data:saved.data});
+if(blocked.error?.status!==401)throw Error('Unauthenticated write was not denied.');
+const state=JSON.parse(saved.data);
+console.log(JSON.stringify({exactMatch:true,revision:saved.revision,entries:state.entries.length,cases:state.cases.length,notices:state.notices.length,sha256:createHash('sha256').update(saved.data).digest('hex'),unauthorizedReadBlocked:true,unauthorizedWriteBlocked:true}));

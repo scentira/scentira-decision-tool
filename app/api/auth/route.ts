@@ -1,0 +1,4 @@
+import { login,cookieOptions,checkOrigin } from '@/lib/auth';
+import { AppError } from '@/lib/domain';
+export async function POST(req:Request){try{checkOrigin(req);const body=await req.json() as Record<string,unknown>;const token=await login(req,String(body.role),String(body.pin));return Response.json({role:body.role},{headers:{'Set-Cookie':`precedent_session=${token}; ${cookieOptions(req)}`,'Cache-Control':'no-store'}});}catch(e){return Response.json({error:e instanceof AppError?e.message:'Could not unlock this view.'},{status:e instanceof AppError?e.status:503});}}
+export async function DELETE(req:Request){try{checkOrigin(req);return Response.json({role:'team'},{headers:{'Set-Cookie':'precedent_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'}});}catch{return Response.json({error:'Not allowed'},{status:403});}}

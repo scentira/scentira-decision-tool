@@ -1,0 +1,11 @@
+.dev.vars*
+.env*
+.wrangler/
+.vinext/
+dist/
+outputs/
+work/
+*.sqlite*
+*.zip
+*.tsbuildinfo
+WORK_STATUS.md
