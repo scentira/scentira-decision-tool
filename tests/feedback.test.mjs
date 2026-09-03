@@ -1,6 +1,7 @@
+import { applyAction } from '../lib/domain-actions.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyAction, currentRule, queue, search } from '../lib/domain.ts';
+import { currentRule, queue, search } from '../lib/domain.ts';
 import { seedEntries } from '../lib/seed.ts';
 const fresh=()=>({entries:structuredClone(seedEntries),cases:[],notices:[]});
 const report={kind:'reportFeedback',id:'report-1',sourceId:'11',submitter:'Gazal',priority:'Medium',situation:'I used the Monday leave rule for a shift request.',outcome:'We still had a coverage gap.'};

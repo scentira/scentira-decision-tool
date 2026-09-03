@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
+import { publicSnapshot,isNormalRecord } from '../lib/public-demo.ts';
+import { sessionRole } from '../lib/session-role.ts';
+test('anonymous snapshot has one fictional record per supplied policy and no private metadata',()=>{const s=publicSnapshot();assert.equal(s.entries.length,14);assert.equal(s.entries.filter(e=>e.status==='Active').length,13);assert.equal(s.entries.filter(e=>e.status==='Superseded').length,1);assert.deepEqual(s.cases,[]);assert.equal(s.readOnly,true);assert.ok(s.entries.every(e=>e.id.startsWith('fictional-policy-')&&/2026/.test(e.situation)&&/DEMO-/.test(e.situation)));assert.doesNotMatch(JSON.stringify(s),/createdAt|submitter|@|Lovish|Gazal|Neha|Hemanshi|MIGRATION TEST ONLY|DEMO TEST ONLY/);});
+test('test artifacts excluded without altering stored records',()=>{const item={situation:'MIGRATION TEST ONLY sample'};assert.equal(isNormalRecord(item),false);assert.equal(isNormalRecord({situation:'DEMO TEST ONLY sample'}),false);assert.equal(isNormalRecord({situation:'An ordinary case'}),true);assert.equal(item.situation,'MIGRATION TEST ONLY sample');});
+const secret='unit-test-secret-not-a-real-credential';
+function token(role,expiry){const payload=`${role}.${expiry}`;return `precedent_session=${payload}.${createHmac('sha256',secret).update(payload).digest('hex')}`;}
+test('missing, forged, expired and malformed sessions are public only',async()=>{for(const cookie of [null,'precedent_session=founder',token('founder',999),token('team',2000),token('founder','NaN'),token('cos','Infinity'),token('founder',2000)+'.extra',token('founder',2000).replace('founder','cos')])assert.equal(await sessionRole(cookie,secret,1000),'team');});
+test('staff role requires valid signature and finite unexpired timestamp',async()=>{for(const role of ['founder','cos'])assert.equal(await sessionRole(token(role,2000),secret,1000),role);assert.equal(await sessionRole(token('founder',2000),'wrong',1000),'team');assert.equal(await sessionRole(token('founder',2000),undefined,1000),'team');});

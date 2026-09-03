@@ -4,14 +4,14 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { categories, currentRule, people, type Entry, type Role, type Situation } from '@/lib/domain';
+import { categories, currentRule, type Entry, type Role, type Situation } from '@/lib/domain';
 
 type Save = (action:Record<string,unknown>)=>Promise<void>;
 function OriginalRule({entry}:{entry:Entry}) {
  return <details className="old-rule"><summary>Rule followed: {entry.title}</summary><p>{entry.decision}</p><p><strong>Reasoning:</strong> {entry.reasoning||'Not recorded'}</p><p><strong>Exception:</strong> {entry.exception||'None recorded'}</p></details>;
 }
 
-export function ReportRuleForm({entry,onSave,onClose}:{entry:Entry;onSave:Save;onClose:()=>void}) {
+export function ReportRuleForm({entry,onSave,onClose,people}:{entry:Entry;onSave:Save;onClose:()=>void;people:{name:string}[]}) {
  const [situation,setSituation]=useState('');const [outcome,setOutcome]=useState('');
  const [submitter,setSubmitter]=useState('');const [priority,setPriority]=useState('');
  const [busy,setBusy]=useState(false);const [error,setError]=useState('');const lock=useRef(false);const id=useRef(crypto.randomUUID());

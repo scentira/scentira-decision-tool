@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Role } from './domain';
 import { convexRead, convexMutate, convexLoginAttempt } from './convex-store';
 

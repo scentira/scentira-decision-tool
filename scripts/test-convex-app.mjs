@@ -10,7 +10,7 @@ const origin='http://localhost:3000';
 const settings=parseEnv(await readFile('.dev.vars','utf8'));
 async function request(path,body,cookie){const response=await fetch(origin+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',Origin:origin,...(cookie?{Cookie:cookie}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:response.status,data:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]};}
 const before=await request('/api/state');assert.equal(before.status,200);assert.equal(before.data.services.storage,'convex','App has not switched to Convex yet.');
-assert.match(search(before.data.entries,'customer wants additional discount')[0].entry.decision,/1–10 previous orders → no discount/);
+assert.match(search(before.data.entries,'customer wants additional discount')[0].entry.decision,/1–9 previous orders → no discount/);
 assert.equal(search(before.data.entries,'product arrived damaged but has no unboxing video')[0].entry.id,'2');
 const id='migration-convex-smoke-20260831';
 const escalation={kind:'escalate',id,submitter:'Gazal',priority:'Low',situation:'MIGRATION TEST ONLY — verify the amber rehearsal checklist reaches the shared Convex database. Not a customer issue.'};

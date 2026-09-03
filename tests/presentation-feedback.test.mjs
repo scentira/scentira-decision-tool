@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+
+const read=path=>readFile(new URL(path,import.meta.url),'utf8');
+
+test('first-screen copy states the outcome plainly',async()=>{
+ const [learning,landing]=await Promise.all([read('../components/demo-learning.tsx'),read('../components/landing.tsx')]);
+ for(const source of [learning,landing]){
+  assert.match(source,/Turn one founder decision into a rule your whole team can reuse\./);
+  assert.match(source,/Find an approved answer for a new exception, or send it for review\./);
+ }
+});
+
+test('zero real usage is hidden and the panel follows the demo',async()=>{
+ const [metrics,demo]=await Promise.all([read('../components/usage-metrics.tsx'),read('../components/public-demo.tsx')]);
+ assert.match(metrics,/total===0\)return null/);
+ assert.ok(demo.lastIndexOf('<UsageMetricsPanel/>')>demo.indexOf('<DemoLearningEmployee'));
+});
+
+test('applied demo decisions use local one-tap feedback',async()=>{
+ const [feedback,learning,demo]=await Promise.all([read('../components/decision-feedback.tsx'),read('../components/demo-learning.tsx'),read('../components/public-demo.tsx')]);
+ for(const label of ['Worked',"Didn't work",'Not sure'])assert.ok(feedback.includes(label));
+ assert.match(feedback,/if\(selected\|\|busy\)return/);
+ assert.match(learning,/LearnedDecisionCard[\s\S]*DecisionFeedback/);
+ assert.match(demo,/EXAMPLE DECISION[\s\S]*DecisionFeedback/);
+ assert.doesNotMatch(feedback,/fetch\(|\/api\//);
+});
+
+test('learning search moves its result into view',async()=>{
+ const learning=await read('../components/demo-learning.tsx');
+ assert.match(learning,/resultRef\.current\?\.scrollIntoView/);
+ assert.match(learning,/aria-live="polite"/);
+});
