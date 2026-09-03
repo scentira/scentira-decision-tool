@@ -3,6 +3,10 @@ import {useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {fragranceConditions} from '@/lib/fragrance-conditions';
 
+export function ConditionSummary({condition,decision}:{condition:string;decision:string}){
+ return <div className="condition-list" aria-label="Conditions and decision"><div className="condition-row"><span>{condition||'No additional conditions recorded.'}</span><strong>{decision}</strong></div></div>;
+}
+
 export function ConditionSelector({onApply}:{onApply:(row:typeof fragranceConditions[number])=>void|Promise<void>}){
  const [selected,setSelected]=useState('');const [applied,setApplied]=useState(false);const [busy,setBusy]=useState(false);
  const row=fragranceConditions.find(item=>item.id===selected);

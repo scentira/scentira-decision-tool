@@ -32,3 +32,10 @@ test('learning search moves its result into view',async()=>{
  assert.match(learning,/resultRef\.current\?\.scrollIntoView/);
  assert.match(learning,/aria-live="polite"/);
 });
+
+test('every ordinary matched precedent shows conditions and its decision immediately',async()=>{
+ const [app,selector]=await Promise.all([read('../components/precedent-app.tsx'),read('../components/condition-selector.tsx')]);
+ assert.match(app,/ConditionSummary/);
+ assert.match(selector,/Conditions and decision/);
+ assert.match(selector,/condition-row/);
+});

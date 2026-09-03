@@ -30,7 +30,8 @@ async function completeLearningJourney(page:Page){
   await expect(page.getByRole('heading',{name:'Approved precedent found'})).toBeVisible();
   await expect(page.getByText('Swapped orders at the final delivery station',{exact:true})).toBeVisible();
 
-  await page.getByRole('button',{name:'Conditions match — apply decision'}).click();
+  await page.getByRole('radio',{name:/Confirmed swapped orders/}).click();
+  await page.getByRole('button',{name:'Apply selected decision'}).click();
   await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toBeVisible();
   await expect(page.getByText(/Precedent used:/)).toBeVisible();
   const worked=page.getByRole('button',{name:'Worked'});

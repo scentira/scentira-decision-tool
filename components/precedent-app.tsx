@@ -67,7 +67,10 @@ import {
   printSearchDiagnostic,
   type SearchDiagnosticData,
 } from "@/components/search-diagnostic";
-import { ConditionSelector } from "@/components/condition-selector";
+import {
+  ConditionSelector,
+  ConditionSummary,
+} from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
 
 type Snapshot = {
@@ -1358,13 +1361,30 @@ export default function PrecedentApp({
                                       demoDiscount(value)
                                     }
                                   />
-                                ) : undefined
+                                ) : (
+                                  <div className="rule-box">
+                                    <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
+                                    <ConditionSummary
+                                      condition={entry.exception}
+                                      decision={entry.decision}
+                                    />
+                                  </div>
+                                )
                               ) : (
-                                <StaffFollowUp
-                                  entryId={entry.id}
-                                  situation={text}
-                                  onContext={setGuidedSituation}
-                                />
+                                <>
+                                  <div className="rule-box">
+                                    <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
+                                    <ConditionSummary
+                                      condition={entry.exception}
+                                      decision={entry.decision}
+                                    />
+                                  </div>
+                                  <StaffFollowUp
+                                    entryId={entry.id}
+                                    situation={text}
+                                    onContext={setGuidedSituation}
+                                  />
+                                </>
                               )
                             ) : undefined
                           }

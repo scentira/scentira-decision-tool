@@ -16,6 +16,11 @@ function findLibraryWordMatch(entries:DemoLibraryEntry[],query:string){
   const words=tokens(query);return entries.map(entry=>({entry,score:words.filter(word=>tokens(entry.situation).includes(word)).length/Math.max(words.length,1)})).sort((a,b)=>b.score-a.score).find(result=>result.score>=.66)?.entry||null;
 }
 
+function SingleConditionSelector({condition,decision,onApply}:{condition:string;decision:string;onApply:()=>void}){
+  const [selected,setSelected]=useState(false);
+  return <><div className="condition-list" role="radiogroup" aria-label="Choose the condition that matches"><button type="button" role="radio" aria-checked={selected} className={`condition-row condition-choice ${selected?'selected':''}`} onClick={()=>setSelected(true)}><span>{condition||'No additional conditions recorded.'}</span><strong>{decision}</strong></button></div><Button disabled={!selected} onClick={onApply}>Apply selected decision</Button></>;
+}
+
 export function LearningCaseCard({item,compact=false}:{item:LearningCase;compact?:boolean}) {
   return <article className="precedent-card learning-case">
     <div className="card-meta"><span>{item.orderId} · {item.date}</span><span className="status-pill">{item.status}</span></div>
@@ -37,8 +42,8 @@ function LibraryDecisionCard({entry,applied,onApply}:{entry:DemoLibraryEntry;app
   const fragrance=isFragrancePrecedent(entry);
   return <section className="edit-panel" aria-label="Approved library precedent">
     <h2>Approved precedent found</h2><h3>{entry.title}</h3>
-    <div className="rule-box"><h4>CONDITIONS — CHECK BEFORE APPLYING</h4>{fragrance?<ConditionSelector onApply={row=>{const demoUse={precedentId:entry.id,conditionId:row.id,conditionLabel:row.situation,decision:row.decision,source:'demo' as const};void demoUse;onApply();}}/>:<p>{entry.exception||'No additional conditions recorded.'}</p>}</div>
-    {!fragrance&&!applied?<><Button onClick={onApply}>Conditions match — apply decision</Button><p className="muted">Apply only when the conditions above fit this situation.</p></>:applied&&<>
+    <div className="rule-box"><h4>CONDITIONS — CHECK BEFORE APPLYING</h4>{fragrance?<ConditionSelector onApply={row=>{const demoUse={precedentId:entry.id,conditionId:row.id,conditionLabel:row.situation,decision:row.decision,source:'demo' as const};void demoUse;onApply();}}/>:!applied?<SingleConditionSelector condition={entry.exception} decision={entry.decision} onApply={onApply}/>:null}</div>
+    {applied&&<>
       <div className="rule-box"><h4>DECISION</h4><p>{entry.decision}</p></div>
       <p><strong>Reasoning:</strong> {entry.reasoning||'Not recorded'}</p>
       <p><strong>Precedent used:</strong> {entry.title} · {entry.id}</p><DecisionFeedback/>
@@ -98,8 +103,7 @@ export function DemoLearningEmployee({state,libraryEntries,onSubmit,onFounder,on
       {pending?<><LearningCaseCard item={pending}/><Button onClick={onFounder}>Open Founder (demo) to review</Button></>:
         <Button onClick={()=>{try{onSubmit(query);}catch(e){setError((e as Error).message);}}}>Submit fictional exception</Button>}
     </section>}
-    {match&&!applied&&<section className="edit-panel" aria-label="Check precedent conditions"><h2>Approved precedent found</h2><h3>{match.precedent.title}</h3><div className="rule-box"><h4>CONDITIONS — CHECK BEFORE APPLYING</h4><p>{match.precedent.conditions}</p></div>
-      <Button onClick={()=>{onMatch();setApplied(true);}}>Conditions match — apply decision</Button><p className="muted">Apply only when the conditions above fit this situation.</p></section>}
+    {match&&!applied&&<section className="edit-panel" aria-label="Check precedent conditions"><h2>Approved precedent found</h2><h3>{match.precedent.title}</h3><div className="rule-box"><h4>CONDITIONS — CHECK BEFORE APPLYING</h4><SingleConditionSelector condition={match.precedent.conditions} decision={match.precedent.decision} onApply={()=>{onMatch();setApplied(true);}}/></div></section>}
     {match&&applied&&<><LearnedDecisionCard precedent={match.precedent}/><DecisionFeedback/></>}
     {libraryMatch&&<LibraryDecisionCard entry={libraryMatch} applied={applied} onApply={()=>{onMatch();setApplied(true);}}/>}
     </div>
