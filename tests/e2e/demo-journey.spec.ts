@@ -9,6 +9,14 @@ async function mockUsage(page:Page,usage=zeroUsage){
   await page.route('**/api/metrics',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(usage)}));
 }
 
+async function confirmEveryCondition(page:Page){
+  const gate=page.locator('.condition-confirmation');
+  const apply=gate.getByRole('button',{name:'Apply selected decision'});
+  await expect(apply).toBeDisabled();
+  for(const yes of await gate.getByRole('button',{name:'Yes',exact:true}).all())await yes.click();
+  await expect(apply).toBeEnabled();
+}
+
 async function sendCurrentSituationForDemoReview(page:Page){
   const resultHeading=page.locator('.learning-result h2').filter({hasText:/Closest approved decision|This situation is new/});
   await expect(resultHeading).toBeVisible({timeout:60_000});
@@ -51,6 +59,7 @@ async function completeLearningJourney(page:Page){
   await expect(page.getByText('Swapped orders at the final delivery station',{exact:true})).toBeVisible();
 
   await page.getByRole('radio',{name:/Confirmed swapped orders/}).click();
+  await confirmEveryCondition(page);
   await page.getByRole('button',{name:'Apply selected decision'}).click();
   await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toBeVisible();
   await expect(page.getByText(/Precedent used:/)).toBeVisible();
@@ -84,6 +93,7 @@ test('fragrance and discount decisions use the selected action',async({page})=>{
   await page.getByLabel('Describe the situation').fill('The opened fragrance does not suit the customer.');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
   await page.getByRole('radio',{name:/Slight use.*good customer history.*Allow the return/i}).click();
+  await confirmEveryCondition(page);
   await page.getByRole('button',{name:'Apply selected decision'}).click();
   await expect(page.locator('.rule-box').filter({hasText:'DECISION'})).toContainText('Allow the return');
   await expect(page.locator('.general-rule')).toContainText('Opened products are normally not eligible for return.');
@@ -91,9 +101,20 @@ test('fragrance and discount decisions use the selected action',async({page})=>{
   await page.getByLabel('Describe the situation').fill('A customer asks for an additional discount beyond the current promotion.');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
   await page.getByRole('radio',{name:/1 order, first purchase.*Standard 5% only/i}).click();
+  await confirmEveryCondition(page);
   await page.getByRole('button',{name:'Apply selected decision'}).click();
   await expect(page.locator('.rule-box').filter({hasText:'DECISION'})).toContainText('Standard 5% only. No additional discount.');
   await expect(page.locator('.general-rule')).toContainText('The additional discount depends on how many orders the customer has.');
+});
+
+test('a reseller bulk discount is treated as a new situation after matching',async({page})=>{
+  await mockUsage(page);
+  await page.goto('/');
+  await page.getByLabel('Customer type (optional)').selectOption('reseller');
+  await page.getByLabel('Describe the situation').fill('reseller wants bulk discount');
+  await page.getByRole('button',{name:'Find an approved decision'}).click();
+  await expect(page.getByRole('heading',{name:'This situation is new'})).toBeVisible({timeout:60_000});
+  await expect(page.getByText('Additional customer discount',{exact:true})).toHaveCount(0);
 });
 
 test('zero usage stays hidden and demo activity cannot change real totals',async({page})=>{
@@ -135,6 +156,9 @@ test('real Founder and CoS access require the PIN screen',async({page})=>{
   await page.getByRole('button',{name:'Staff sign-in'}).click();
   await expect(page.getByRole('heading',{name:'Unlock Founder view'})).toBeVisible();
   await expect(page.getByLabel('Staff PIN')).toBeVisible();
+  if((page.viewportSize()?.width??1440)<=640){
+    await page.locator('.mobile-access-menu > summary').click();
+  }
   await page.getByRole('button',{name:'CoS (real)'}).click();
   await expect(page.getByRole('heading',{name:'Unlock CoS view'})).toBeVisible();
   await expect(page.getByLabel('Staff PIN')).toBeVisible();
@@ -163,7 +187,7 @@ test('meaning fallback finds plain rewordings and lets users reject an unrelated
   await expect(page.getByText(/This situation is new/)).toBeVisible();
 });
 
-test('a founder demo approval is searchable from Find a precedent',async({page})=>{
+test('a founder demo approval is searchable from Search precedents',async({page})=>{
   await mockUsage(page);
   await page.goto('/');
   await page.getByLabel('Describe the situation').fill('Can staff bring a pet dog into the office?');
@@ -183,7 +207,7 @@ test('a founder demo approval is searchable from Find a precedent',async({page})
     await page.locator('.mobile-access-menu > summary').click();
   }
   await page.getByRole('button',{name:'Demo',exact:true}).click();
-  await page.getByRole('button',{name:'Find a precedent'}).click();
+  await page.getByRole('button',{name:'Search precedents'}).click();
   await page.getByLabel('Describe the situation').fill('Are dogs allowed at work?');
   await page.getByRole('button',{name:'Find a decision'}).click();
   const learned=page.getByRole('article',{name:'Decision from approved precedent'});
@@ -196,7 +220,7 @@ test('browser AI matches meaning without shared wording and rejects unrelated re
   test.setTimeout(120_000);
   await mockUsage(page);
   await page.goto('/');
-  await page.getByRole('button',{name:'Find a precedent'}).click();
+  await page.getByRole('button',{name:'Search precedents'}).click();
   const examples=[
     ['What is our creator spend ceiling?','Paid influencer collaboration'],
     ['How much do we charge for influencer collab?','Paid influencer collaboration'],

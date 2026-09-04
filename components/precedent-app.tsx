@@ -71,10 +71,13 @@ import { SearchExamples } from "@/components/search-examples";
 import { buildSearchExamples } from "@/lib/search-examples";
 import {
   ConditionSelector,
+  ConditionConfirmation,
   ConditionSummary,
 } from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
 import { Spinner } from "@/components/ui/spinner";
+import {customerTypeMatches,type CustomerType} from "@/lib/customer-type";
+import {isMondayLeavePrecedent,mondayLeaveConditions,mondayLeaveDecision} from "@/lib/monday-leave";
 
 type Snapshot = {
   entries: Entry[];
@@ -83,6 +86,15 @@ type Snapshot = {
   people?: { name: string }[];
   services?: { storage?: string };
 };
+
+function GenericConditionGate({entry,surface,onEscalate}:{entry:Entry;surface:'demo'|'real';onEscalate:()=>void}){
+  const [applied,setApplied]=useState(false);
+  const monday=isMondayLeavePrecedent(entry);
+  const condition=monday?mondayLeaveConditions.join('\n'):entry.exception;
+  const decision=monday?mondayLeaveDecision:entry.decision;
+  if(applied)return <><div className="rule-box"><h4>DECISION</h4><p>{decision}</p></div>{!monday&&<div className="general-rule"><strong>General rule</strong><p>{entry.decision}</p></div>}</>;
+  return <div className="rule-box"><h4>CONDITIONS — CHECK BEFORE APPLYING</h4><ConditionSummary condition={condition} decision={decision}/><ConditionConfirmation condition={condition} onEscalate={onEscalate} onConfirmed={()=>{setApplied(true);captureEvent('decision_applied',surface);}}/></div>;
+}
 type View = "search" | "browse" | "submitted" | "queue" | "manage";
 type Draft = {
   kind: "answer" | "review" | "promote" | "replace";
@@ -146,6 +158,8 @@ function PrecedentCard({
 }) {
   const [open, setOpen] = useState(expanded);
   const old = entries.find((e) => e.id === entry.supersedesId);
+  const displayDecision=isMondayLeavePrecedent(entry)?mondayLeaveDecision:entry.decision;
+  const displayException=isMondayLeavePrecedent(entry)?mondayLeaveConditions.join('\n'):entry.exception;
   return (
     <article
       className={`precedent-card ${open ? "expanded" : ""}`}
@@ -182,12 +196,12 @@ function PrecedentCard({
           {!followUp && (
             <div className="rule-box">
               <h4>REFERENCE RULE — CHECK CONDITIONS BEFORE APPLYING</h4>
-              <p>{entry.decision}</p>
+              <p>{displayDecision}</p>
             </div>
           )}
           <details className="rule-details">
             <summary>Precedent, reasoning, exceptions &amp; history</summary>
-            {followUp && <p>{entry.decision}</p>}
+            {followUp && <p>{displayDecision}</p>}
             <p className="situation-copy">{entry.situation}</p>
             <div className="card-columns">
               <div>
@@ -196,7 +210,7 @@ function PrecedentCard({
               </div>
               <div>
                 <h4>THE EXCEPTION</h4>
-                <p>{entry.exception || "None recorded"}</p>
+                <p>{displayException || "None recorded"}</p>
               </div>
             </div>
             {old && (
@@ -620,6 +634,7 @@ export default function PrecedentApp({
   const [view, setView] = useState<View>(demo ? "submitted" : "search");
   const [text, setText] = useState("");
   const [query, setQuery] = useState<string | null>(null);
+  const [customerType,setCustomerType]=useState<CustomerType>('direct');
   const [queryError, setQueryError] = useState("");
   const [category, setCategory] = useState("All categories");
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -749,7 +764,7 @@ export default function PrecedentApp({
       setEscalation(null);
       setView("submitted");
       setExpandedCase(response.case?.id || null);
-      setNotice(response.warning || "Saved.");
+      setNotice(`${response.warning || "Saved."} No response time is guaranteed. Email delivery is not connected, so check the Founder queue for the answer.`);
       await refresh();
     } catch (e) {
       setSubmitError((e as Error).message);
@@ -928,7 +943,9 @@ export default function PrecedentApp({
           summary: entry.exception || `Category: ${entry.category}`,
         })),
     ];
-    if (confident || learnedConfident) {
+    const customerTypeConfirmed=!!confident&&customerTypeMatches(confident.entry,customerType);
+    const learnedTypeConfirmed=!!learnedConfident&&customerType==='direct';
+    if (customerTypeConfirmed || learnedTypeConfirmed) {
       const report = {
         query: nextQuery,
         count: candidates.length,
@@ -960,12 +977,13 @@ export default function PrecedentApp({
     setMeaningEntryId(semantic?.id ?? null);
     setMeaningEntryScore(semantic?.score ?? 1);
     setSearchingMeaning(false);
-    if (semantic) void recordRealMatch();
+    const semanticEntry=data.entries.find(entry=>entry.id===semantic?.id)||(demoLearning?.precedents||[]).find(entry=>entry.id===semantic?.id);
+    if (semantic&&customerTypeMatches(semanticEntry||{},customerType)) void recordRealMatch();
   }
   const wordMatches = query
-    ? search(data.entries, query).filter((result) => !result.possible)
+    ? search(data.entries, query).filter((result) => !result.possible&&customerTypeMatches(result.entry,customerType))
     : [];
-  const learnedSearchMatch = query
+  const learnedSearchMatch = query&&customerType==='direct'
     ? findLearnedPrecedent(demoLearning?.precedents || [], query)?.precedent ||
       (meaningEntryId
         ? (demoLearning?.precedents || []).find(
@@ -975,7 +993,7 @@ export default function PrecedentApp({
     : undefined;
   const meaningEntry = meaningEntryId
     ? data.entries.find(
-        (entry) => entry.id === meaningEntryId && entry.status === "Active",
+        (entry) => entry.id === meaningEntryId && entry.status === "Active"&&customerTypeMatches(entry,customerType),
       )
     : undefined;
   const matches = wordMatches.length
@@ -1157,7 +1175,7 @@ export default function PrecedentApp({
           onClick={() => go("search")}
         >
           <Search size={15} />
-          Find a precedent
+          Search precedents
         </Button>
         <Button
           aria-current={
@@ -1169,7 +1187,7 @@ export default function PrecedentApp({
           onClick={() => go("queue")}
         >
           <Inbox size={15} />
-          Decision queue{" "}
+          Founder queue{" "}
           <span className="count">
             {data.cases.length + (demoLearning?.cases.length || 0)}
           </span>
@@ -1291,6 +1309,8 @@ export default function PrecedentApp({
                 }}
                 placeholder="For example, a customer received a damaged perfume but has no unboxing video…"
               />
+              <label htmlFor="customer-type">Customer type (optional)</label>
+              <NativeSelect id="customer-type" value={customerType} onChange={event=>{setCustomerType(event.target.value as CustomerType);setQuery(null);setMeaningEntryId(null);}}><NativeSelectOption value="direct">Direct customer</NativeSelectOption><NativeSelectOption value="reseller">Reseller or channel partner</NativeSelectOption></NativeSelect>
               <SearchExamples
                 examples={searchExamples}
                 onSelect={(example) => {
@@ -1410,29 +1430,11 @@ export default function PrecedentApp({
                                     }
                                   />
                                 ) : (
-                                  <div className="rule-box">
-                                    <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
-                                    <ConditionSummary
-                                      condition={entry.exception}
-                                      decision={entry.decision}
-                                    />
-                                    <Button variant="outline" onClick={() => { capturePrecedentRejected(analyticsSurface,entry.id,score); setRejectedMatch(true); }}>
-                                      This is not my situation, ask the founder
-                                    </Button>
-                                  </div>
+                                  <GenericConditionGate entry={entry} surface="demo" onEscalate={()=>{capturePrecedentRejected(analyticsSurface,entry.id,score);setRejectedMatch(true);}}/>
                                 )
                               ) : (
                                 <>
-                                  <div className="rule-box">
-                                    <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
-                                    <ConditionSummary
-                                      condition={entry.exception}
-                                      decision={entry.decision}
-                                    />
-                                    <Button variant="outline" onClick={() => { capturePrecedentRejected(analyticsSurface,entry.id,score); setRejectedMatch(true); }}>
-                                      This is not my situation, ask the founder
-                                    </Button>
-                                  </div>
+                                  <GenericConditionGate entry={entry} surface="real" onEscalate={()=>{capturePrecedentRejected(analyticsSurface,entry.id,score);setRejectedMatch(true);}}/>
                                   <StaffFollowUp
                                     entryId={entry.id}
                                     situation={text}

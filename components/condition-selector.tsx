@@ -68,6 +68,17 @@ export function ConditionSummary({
   );
 }
 
+export function ConditionConfirmation({condition,onConfirmed,onEscalate,busy=false}:{condition:string;onConfirmed:()=>void|Promise<void>;onEscalate:()=>void;busy?:boolean}){
+  const checks=conditionItems(condition).flatMap(item=>item.split(/\s+·\s+/)).map(item=>item.trim()).filter(Boolean);
+  const [answers,setAnswers]=useState<Record<number,'yes'|'no'|'not_sure'>>({});
+  const allYes=checks.every((_,index)=>answers[index]==='yes');
+  const needsFounder=Object.values(answers).some(value=>value==='no'||value==='not_sure');
+  return <div className="condition-confirmation" aria-label="Confirm every condition">
+    {checks.map((check,index)=><fieldset key={`${index}-${check}`}><legend>{check}</legend><div className="condition-answer-options">{([['yes','Yes'],['no','No'],['not_sure','Not sure']] as const).map(([value,label])=><Button type="button" variant={answers[index]===value?'secondary':'outline'} aria-pressed={answers[index]===value} key={value} onClick={()=>setAnswers(current=>({...current,[index]:value}))}>{label}</Button>)}</div></fieldset>)}
+    {needsFounder?<Button onClick={onEscalate}>Send to founder</Button>:<Button disabled={!allYes||busy} onClick={()=>void onConfirmed()}>{busy?'Saving…':'Apply selected decision'}</Button>}
+  </div>;
+}
+
 export function ConditionSelector({
   onApply,
   surface,
@@ -114,23 +125,9 @@ export function ConditionSelector({
         ))}
       </div>
       <div className="match-actions">
-        <Button
-          disabled={!row || busy || applied}
-          onClick={async () => {
-          if (!row) return;
-          setBusy(true);
-          await onApply(row);
-          setApplied(true);
-          captureEvent("decision_applied", surface);
-          setBusy(false);
-          }}
-        >
-        {applied
-          ? "Decision applied"
-          : busy
-            ? "Saving…"
-            : "Apply selected decision"}
-        </Button>
+        {row&&!applied&&<ConditionConfirmation key={row.id} condition={row.situation} busy={busy} onEscalate={()=>{if(onReject&&precedentId){capturePrecedentRejected(surface,precedentId,matchScore);onReject();}}} onConfirmed={async()=>{setBusy(true);await onApply(row);setApplied(true);captureEvent("decision_applied",surface);setBusy(false);}}/>}
+        {!row&&<Button disabled>Apply selected decision</Button>}
+        {applied&&<Button disabled>Decision applied</Button>}
         {onReject && precedentId && (
           <Button variant="outline" onClick={() => { capturePrecedentRejected(surface,precedentId,matchScore); onReject(); }}>
             This is not my situation, ask the founder

@@ -26,12 +26,14 @@ import { SearchExamples } from "@/components/search-examples";
 import { buildSearchExamples } from "@/lib/search-examples";
 import {
   ConditionColumnsHeader,
+  ConditionConfirmation,
   ConditionRowContent,
   ConditionSelector,
 } from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
 import { captureEvent, capturePrecedentRejected } from "@/lib/analytics";
 import { Spinner } from "@/components/ui/spinner";
+import {customerTypeMatches,type CustomerType} from "@/lib/customer-type";
 
 type DemoLibraryEntry = {
   id: string;
@@ -43,6 +45,7 @@ type DemoLibraryEntry = {
   category: string;
   status: "Active" | "Superseded";
   conditionRows?: readonly { id: string; situation: string; decision: string }[];
+  customerType?: CustomerType;
 };
 function findLibraryWordMatch(entries: DemoLibraryEntry[], query: string) {
   const words = tokens(query);
@@ -105,9 +108,7 @@ function SingleConditionSelector({
         </button>)}
       </div>
       <div className="match-actions">
-        <Button disabled={!selectedRow} onClick={() => { if(!selectedRow)return; captureEvent("decision_applied", "demo"); onApply(selectedRow); }}>
-          Apply selected decision
-        </Button>
+        {selectedRow?<ConditionConfirmation key={selectedRow.id} condition={selectedRow.situation} onEscalate={()=>{capturePrecedentRejected("demo",precedentId,matchScore);onReject();}} onConfirmed={()=>{captureEvent("decision_applied","demo");onApply(selectedRow);}}/>:<Button disabled>Apply selected decision</Button>}
         <Button variant="outline" onClick={() => { capturePrecedentRejected("demo",precedentId,matchScore); onReject(); }}>
           This is not my situation, ask the founder
         </Button>
@@ -296,6 +297,7 @@ export function DemoLearningEmployee({
       : "",
   );
   const [query, setQuery] = useState<string | null>(null);
+  const [customerType,setCustomerType]=useState<CustomerType>('direct');
   const [futureCase, setFutureCase] = useState(state.precedents.length > 0);
   const [applied, setApplied] = useState(false);
   const [meaningMatchId, setMeaningMatchId] = useState<string | null>(null);
@@ -318,11 +320,12 @@ export function DemoLearningEmployee({
     query && query === text && meaningMatchId
       ? state.precedents.find((item) => item.id === meaningMatchId)
       : null;
-  const match =
+  const rawMatch =
     wordMatch ??
     (meaningPrecedent
       ? { precedent: meaningPrecedent, score: meaningMatchScore, shared: [] }
       : null);
+  const match=rawMatch&&customerTypeMatches(rawMatch.precedent,customerType)?rawMatch:null;
   const activeLibrary = libraryEntries.filter(
     (item) => item.status === "Active",
   );
@@ -333,7 +336,8 @@ export function DemoLearningEmployee({
     query && query === text && meaningMatchId
       ? activeLibrary.find((item) => item.id === meaningMatchId)
       : null;
-  const libraryMatch = libraryWordMatch?.entry ?? libraryMeaningMatch;
+  const rawLibraryMatch = libraryWordMatch?.entry ?? libraryMeaningMatch;
+  const libraryMatch=rawLibraryMatch&&customerTypeMatches(rawLibraryMatch,customerType)?rawLibraryMatch:undefined;
   const libraryMatchScore = libraryWordMatch?.score ?? meaningMatchScore;
   const pending = state.cases.find(
     (c) => c.situation === query && c.status === "Pending founder approval",
@@ -443,6 +447,8 @@ export function DemoLearningEmployee({
           }}
           placeholder="What happened?"
         />
+        <label htmlFor="learning-customer-type">Customer type (optional)</label>
+        <select id="learning-customer-type" value={customerType} onChange={event=>{setCustomerType(event.target.value as CustomerType);setQuery(null);setApplied(false);}}><option value="direct">Direct customer</option><option value="reseller">Reseller or channel partner</option></select>
         <SearchExamples
           examples={searchExamples}
           onSelect={(example) => {
@@ -454,6 +460,7 @@ export function DemoLearningEmployee({
           <Button type="submit">Find an approved decision</Button>
         </div>
       </form>
+      <section className="demo-steps" aria-label="How it works"><div><strong>1. Search</strong><span>Search an approved precedent.</span></div><div><strong>2. Confirm</strong><span>Confirm its conditions.</span></div><div><strong>3. Escalate</strong><span>Send exceptions to the founder queue.</span></div><p>Built for Scentira · Lovish Goyal · <a href="mailto:lovish@scentira.in">lovish@scentira.in</a></p></section>
       {state.precedents.length > 0 && <div className="learning-actions">
         <Button
           variant="link"
@@ -565,7 +572,7 @@ export function DemoLearningEmployee({
               </Button>
             ) : (
               <>
-                <p className="notice">Fictional request submitted for founder review.</p>
+                <p className="notice">Fictional request submitted for founder review. No response time is guaranteed; this demo does not send notifications, so open the Founder queue to see the answer.</p>
                 <Button onClick={onFounder}>Open Founder (demo) to review</Button>
               </>
             )}

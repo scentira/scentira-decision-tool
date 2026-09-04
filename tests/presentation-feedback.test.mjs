@@ -57,7 +57,8 @@ test('matched decisions show comparison context and can be rejected safely',asyn
   assert.match(source,/Check that this situation matches yours before applying\./);
   assert.match(source,/This situation is new\. Send it to the founder to get an answer\. Once answered, everyone/);
  }
- for(const source of [app,learning,demo,selector])assert.match(source,/This is not my situation, ask the founder/);
+ for(const source of [learning,demo,selector])assert.match(source,/This is not my situation, ask the founder/);
+ assert.match(app,/onEscalate/);
 });
 
 test('a rejected match continues into the existing real and fictional escalation flows',async()=>{

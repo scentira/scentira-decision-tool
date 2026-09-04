@@ -32,6 +32,7 @@ import {
 import { SearchExamples } from "@/components/search-examples";
 import { buildSearchExamples } from "@/lib/search-examples";
 import { Spinner } from "@/components/ui/spinner";
+import {customerTypeMatches,type CustomerType} from "@/lib/customer-type";
 
 export function PublicDemo({
   onLogin,
@@ -53,6 +54,7 @@ export function PublicDemo({
   const [learningMode, setLearningMode] = useState(true);
   const [text, setText] = useState("");
   const [query, setQuery] = useState<string | null>(null);
+  const [customerType,setCustomerType]=useState<CustomerType>('direct');
   const [category, setCategory] = useState("All categories");
   const [browse, setBrowse] = useState(false);
   const [open, setOpen] = useState("fictional-policy-01");
@@ -84,11 +86,11 @@ export function PublicDemo({
   const learnedWordMatch = query
     ? findLearnedPrecedent(learningState.precedents, query)
     : null;
-  const learnedPrecedent =
+  const learnedPrecedent = customerType==='direct' ?
     learnedWordMatch?.precedent ||
     (meaningMatchId
       ? learningState.precedents.find((item) => item.id === meaningMatchId)
-      : undefined);
+      : undefined) : undefined;
   const lexical = activeEntries
     .map((entry) => ({
       entry,
@@ -111,6 +113,8 @@ export function PublicDemo({
           : meaningEntry
             ? lexical.filter((item) => item.entry.id === meaningEntry.id)
             : []
+  ).filter(
+    ({entry})=>customerTypeMatches(entry,customerType),
   ).filter(
     ({ entry }) => category === "All categories" || entry.category === category,
   );
@@ -153,7 +157,8 @@ export function PublicDemo({
     setPreview(null);
     setFeedback("");
     setDiscountApplied(false);
-    if (nextLearned || nextLexical[0]?.score >= 0.66) {
+    const lexicalMatch=nextLexical[0];
+    if ((nextLearned&&customerType==='direct') || (lexicalMatch?.score >= 0.66&&customerTypeMatches(lexicalMatch.entry,customerType))) {
       const report = {
         query: next,
         count: candidates.length,
@@ -185,7 +190,8 @@ export function PublicDemo({
     setMeaningMatchId(semantic?.id ?? null);
     setMeaningMatchScore(semantic?.score ?? 1);
     setSearchingMeaning(false);
-    if (semantic) captureEvent("precedent_matched", "demo");
+    const semanticEntry=activeEntries.find(entry=>entry.id===semantic?.id)||learningState.precedents.find(entry=>entry.id===semantic?.id);
+    if (semantic&&customerTypeMatches(semanticEntry||{},customerType)) captureEvent("precedent_matched", "demo");
   }
   async function find(e: FormEvent) {
     e.preventDefault();
@@ -233,7 +239,7 @@ export function PublicDemo({
           aria-current={learningMode ? "page" : undefined}
           onClick={() => setLearningMode(true)}
         >
-          Learn from a decision
+          Handle a new case
         </Button>
         <Button
           aria-current={!learningMode && !browse ? "page" : undefined}
@@ -243,7 +249,7 @@ export function PublicDemo({
             setCategory("All categories");
           }}
         >
-          Find a precedent
+          Search precedents
         </Button>
         <Button
           aria-current={!learningMode && browse ? "page" : undefined}
@@ -333,6 +339,8 @@ export function PublicDemo({
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Try: a damaged delivery, an address change, or a paid influencer collaboration"
               />
+              <label htmlFor="public-customer-type">Customer type (optional)</label>
+              <select id="public-customer-type" value={customerType} onChange={event=>{setCustomerType(event.target.value as CustomerType);setQuery(null);setMeaningMatchId(null);}}><option value="direct">Direct customer</option><option value="reseller">Reseller or channel partner</option></select>
               <SearchExamples
                 examples={searchExamples}
                 onSelect={(example) => {
