@@ -1,15 +1,84 @@
-'use client';
-import {useState} from 'react';
-import {Button} from '@/components/ui/button';
-import {fragranceConditions} from '@/lib/fragrance-conditions';
+"use client";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { fragranceConditions } from "@/lib/fragrance-conditions";
+import { captureEvent, type Surface } from "@/lib/analytics";
 
-export function ConditionSummary({condition,decision}:{condition:string;decision:string}){
- return <div className="condition-list" aria-label="Conditions and decision"><div className="condition-row"><span>{condition||'No additional conditions recorded.'}</span><strong>{decision}</strong></div></div>;
+export function ConditionSummary({
+  condition,
+  decision,
+}: {
+  condition: string;
+  decision: string;
+}) {
+  return (
+    <div className="condition-list" aria-label="Conditions and decision">
+      <div className="condition-row">
+        <span>{condition || "No additional conditions recorded."}</span>
+        <strong>{decision}</strong>
+      </div>
+    </div>
+  );
 }
 
-export function ConditionSelector({onApply}:{onApply:(row:typeof fragranceConditions[number])=>void|Promise<void>}){
- const [selected,setSelected]=useState('');const [applied,setApplied]=useState(false);const [busy,setBusy]=useState(false);
- const row=fragranceConditions.find(item=>item.id===selected);
- return <><div className="condition-list" role="radiogroup" aria-label="Choose the condition that matches">{fragranceConditions.map(item=><button type="button" role="radio" aria-checked={selected===item.id} className={`condition-row condition-choice ${selected===item.id?'selected':''}`} key={item.id} onClick={()=>{setSelected(item.id);setApplied(false);}}><span>{item.situation}</span><strong>{item.decision}</strong></button>)}</div>
- <Button disabled={!row||busy||applied} onClick={async()=>{if(!row)return;setBusy(true);await onApply(row);setApplied(true);setBusy(false);}}>{applied?'Decision applied':busy?'Saving…':'Apply selected decision'}</Button>{applied&&row&&<p className="notice" role="status">Selected: {row.situation} — {row.decision}</p>}</>;
+export function ConditionSelector({
+  onApply,
+  surface,
+}: {
+  surface: Surface;
+  onApply: (row: (typeof fragranceConditions)[number]) => void | Promise<void>;
+}) {
+  const [selected, setSelected] = useState("");
+  const [applied, setApplied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const row = fragranceConditions.find((item) => item.id === selected);
+  return (
+    <>
+      <div
+        className="condition-list"
+        role="radiogroup"
+        aria-label="Choose the condition that matches"
+      >
+        {fragranceConditions.map((item) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selected === item.id}
+            className={`condition-row condition-choice ${selected === item.id ? "selected" : ""}`}
+            key={item.id}
+            onClick={() => {
+              setSelected(item.id);
+              setApplied(false);
+              captureEvent("condition_row_selected", surface);
+            }}
+          >
+            <span>{item.situation}</span>
+            <strong>{item.decision}</strong>
+          </button>
+        ))}
+      </div>
+      <Button
+        disabled={!row || busy || applied}
+        onClick={async () => {
+          if (!row) return;
+          setBusy(true);
+          await onApply(row);
+          setApplied(true);
+          captureEvent("decision_applied", surface);
+          setBusy(false);
+        }}
+      >
+        {applied
+          ? "Decision applied"
+          : busy
+            ? "Saving…"
+            : "Apply selected decision"}
+      </Button>
+      {applied && row && (
+        <p className="notice" role="status">
+          Selected: {row.situation} — {row.decision}
+        </p>
+      )}
+    </>
+  );
 }

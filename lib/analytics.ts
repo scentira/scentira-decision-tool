@@ -1,13 +1,17 @@
 'use client';
 import posthog from 'posthog-js';
 
-export type AnalyticsEvent='case_submitted'|'decision_approved'|'precedent_matched';
+export type Surface='demo'|'real';
+export type AnalyticsEvent='case_submitted'|'decision_approved'|'precedent_search'|'precedent_matched'|'condition_row_selected'|'decision_applied'|'precedent_added';
 export type FeedbackValue='yes'|'no'|'not_sure';
 
 // This is the only analytics capture surface. Never add case or policy data here.
-export function captureEvent(event:AnalyticsEvent){
-  if(posthog.__loaded)posthog.capture(event);
+function capture(event:string,properties:Record<string,string>){
+  if(process.env.NODE_ENV==='development')console.info('[Scentira analytics]',JSON.stringify({event,...properties}));
+  if(posthog.__loaded)posthog.capture(event,properties);
 }
-export function captureFeedback(value:FeedbackValue){
-  if(posthog.__loaded)posthog.capture('feedback_given',{feedback:value});
+export function captureEvent(event:AnalyticsEvent,surface:Surface){capture(event,{surface});}
+export function capturePageview(surface:Surface){capture('$pageview',{surface});}
+export function captureFeedback(value:FeedbackValue,surface:Surface){
+  capture('feedback_given',{feedback:value,surface});
 }

@@ -56,7 +56,7 @@ import {
   type Role,
   type Situation,
 } from "@/lib/domain";
-import { captureEvent } from "@/lib/analytics";
+import { captureEvent, capturePageview } from "@/lib/analytics";
 import { CaseFeedback } from "@/components/case-feedback";
 import {
   findMeaningMatch,
@@ -647,6 +647,7 @@ export default function PrecedentApp({
   const [expandedCase, setExpandedCase] = useState<string | null>(null);
   const [creatingPrecedent, setCreatingPrecedent] = useState(false);
   const authVersion = useRef(0);
+  const lastPageviewSurface = useRef<string | null>(null);
   const request = useCallback(
     <T,>(path: string, body?: unknown, method = "POST") =>
       apiRequest<T>(path, body, method, teamWorkspace),
@@ -691,13 +692,13 @@ export default function PrecedentApp({
     setNotice("");
   }
   async function recordRealMatch() {
+    captureEvent("precedent_matched", demo ? "demo" : "real");
     if (demo) return;
     try {
       await request("/api/state", {
         kind: "recordMatch",
         id: crypto.randomUUID(),
       });
-      captureEvent("precedent_matched");
     } catch {
       /* Search still works if usage counting is temporarily unavailable. */
     }
@@ -736,7 +737,7 @@ export default function PrecedentApp({
           priority,
         },
       );
-      captureEvent("case_submitted");
+      captureEvent("case_submitted", "real");
       setEscalation(null);
       setView("submitted");
       setExpandedCase(response.case?.id || null);
@@ -777,7 +778,9 @@ export default function PrecedentApp({
         action.kind === "promote" ||
         action.kind === "replace" ||
         action.kind === "createPrecedent";
-      if (created) captureEvent("decision_approved");
+      if (created) captureEvent("decision_approved", "real");
+      if (action.kind === "createPrecedent")
+        captureEvent("precedent_added", "real");
       setNotice(response.warning || (created ? "Precedent created" : "Saved."));
       setCreatedTest(
         created
@@ -888,6 +891,7 @@ export default function PrecedentApp({
       setQueryError("Describe the situation first.");
       return;
     }
+    captureEvent("precedent_search", demo ? "demo" : "real");
     setQueryError("");
     setGuidedSituation("");
     setMeaningEntryId(null);
@@ -1005,6 +1009,13 @@ export default function PrecedentApp({
   const people = data.people || [];
   const queued = queue(data.cases, data.role);
   const isStaff = data.role !== "team";
+  const analyticsSurface =
+    demo || (!isStaff && !teamWorkspace) ? "demo" : "real";
+  useEffect(() => {
+    if (lastPageviewSurface.current === analyticsSurface) return;
+    lastPageviewSurface.current = analyticsSurface;
+    capturePageview(analyticsSurface);
+  }, [analyticsSurface]);
   if (!demo && !isStaff && demoPreviewRole)
     return (
       <PrecedentApp
@@ -1020,7 +1031,7 @@ export default function PrecedentApp({
                 setSessionLearning(
                   approveLearningCase(sessionLearning, id, approval),
                 );
-                captureEvent("decision_approved");
+                captureEvent("decision_approved", "demo");
               }
             : undefined
         }
@@ -1060,7 +1071,7 @@ export default function PrecedentApp({
         learningState={sessionLearning}
         onLearningSubmit={(text) => {
           setSessionLearning(submitLearningCase(sessionLearning, text));
-          captureEvent("case_submitted");
+          captureEvent("case_submitted", "demo");
         }}
         initialStaff={showStaff}
         onFounder={() => {
@@ -1343,6 +1354,7 @@ export default function PrecedentApp({
                             i === 0 && query === text.trim() ? (
                               isFragrancePrecedent(entry) ? (
                                 <ConditionSelector
+                                  surface={demo ? "demo" : "real"}
                                   onApply={async (row) => {
                                     if (demo) return;
                                     await request("/api/state", {

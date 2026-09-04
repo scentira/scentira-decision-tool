@@ -11,12 +11,14 @@ test('analytics initializes once from environment and skips localhost by default
  assert.match(source,/autocapture:false/);assert.match(source,/disable_session_recording:true/);
  assert.doesNotMatch(source,/phc_[A-Za-z0-9]/);
 });
-test('capture helper accepts only the four approved event shapes',()=>{
+test('capture helper accepts approved count-only events with a required surface',()=>{
  const source=read('../lib/analytics.ts');
- for(const event of ['case_submitted','decision_approved','precedent_matched','feedback_given'])assert.match(source,new RegExp(event));
+ for(const event of ['case_submitted','decision_approved','precedent_search','precedent_matched','condition_row_selected','decision_applied','precedent_added','feedback_given'])assert.match(source,new RegExp(event));
  for(const forbidden of ['caseId','customer','orderId','situation','reasoning','note'])assert.doesNotMatch(source,new RegExp(forbidden,'i'));
- assert.match(source,/captureEvent\(event:AnalyticsEvent\)/);assert.doesNotMatch(source,/captureEvent\([^)]*,/);
- assert.match(source,/\{feedback:value\}/);
+ assert.match(source,/captureEvent\(event:AnalyticsEvent,surface:Surface\)/);
+ assert.match(source,/capturePageview\(surface:Surface\)/);
+ assert.match(source,/\{feedback:value,surface\}/);
+ assert.match(source,/posthog\.capture\(event,properties\)/);
 });
 test('case feedback is saved once against an answered case',()=>{
  const state={...founderDemoSnapshot(),notices:[]};const item=state.cases.find(c=>c.answer);

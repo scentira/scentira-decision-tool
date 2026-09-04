@@ -5,9 +5,10 @@ const host=process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const localhost=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
 const allowLocal=process.env.NEXT_PUBLIC_POSTHOG_ALLOW_LOCALHOST==='true';
 
-if(key&&host&&(!localhost||allowLocal))posthog.init(key,{
-  api_host:host,
-  capture_pageview:true,
+if(!key)console.warn('[Scentira analytics] NEXT_PUBLIC_POSTHOG_KEY is missing; analytics is disabled.');
+else if(!localhost||allowLocal)posthog.init(key,{
+  api_host:host||'https://eu.i.posthog.com',
+  capture_pageview:false,
   autocapture:false,
   disable_session_recording:true,
   person_profiles:'identified_only',

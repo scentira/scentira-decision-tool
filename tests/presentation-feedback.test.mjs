@@ -15,13 +15,13 @@ test('first-screen copy states the outcome plainly',async()=>{
 test('zero real usage is hidden and the panel follows the demo',async()=>{
  const [metrics,demo]=await Promise.all([read('../components/usage-metrics.tsx'),read('../components/public-demo.tsx')]);
  assert.match(metrics,/total===0\)return null/);
- assert.ok(demo.lastIndexOf('<UsageMetricsPanel/>')>demo.indexOf('<DemoLearningEmployee'));
+ assert.ok(demo.lastIndexOf('<UsageMetricsPanel')>demo.indexOf('<DemoLearningEmployee'));
 });
 
 test('applied demo decisions use local one-tap feedback',async()=>{
  const [feedback,learning,demo]=await Promise.all([read('../components/decision-feedback.tsx'),read('../components/demo-learning.tsx'),read('../components/public-demo.tsx')]);
  for(const label of ['Worked',"Didn't work",'Not sure'])assert.ok(feedback.includes(label));
- assert.match(feedback,/if\(selected\|\|busy\)return/);
+ assert.match(feedback,/if \(selected \|\| busy\) return/);
  assert.match(learning,/LearnedDecisionCard[\s\S]*DecisionFeedback/);
  assert.match(demo,/EXAMPLE DECISION[\s\S]*DecisionFeedback/);
  assert.doesNotMatch(feedback,/fetch\(|\/api\//);
