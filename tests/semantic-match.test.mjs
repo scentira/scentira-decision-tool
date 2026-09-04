@@ -34,6 +34,12 @@ test('weak and ambiguous concept matches are rejected', () => {
   assert.equal(findConceptMatch(sameSituation[1],[precedent,{...precedent,id:'demo-precedent-2'}]),null);
 });
 
+test('reseller and channel discounts cannot use the customer order-history precedent',()=>{
+  const discount={id:'fictional-policy-01',title:'Additional customer discount',summary:'A customer asks for an additional discount based on previous order history.'};
+  assert.equal(findConceptMatch('A reseller wants a bulk discount.',[discount]),null);
+  assert.equal(findConceptMatch('A loyal repeat customer wants an additional discount on top of the current offer.',[discount])?.id,discount.id);
+});
+
 const libraryCandidates=demoEntries.filter(entry=>entry.status==='Active').map(entry=>({id:entry.id,title:entry.title,summary:`${entry.situation} ${entry.exception}`}));
 const policyRewordings=[
   ['fictional-policy-01','A loyal repeat buyer with more than ten purchases wants an extra discount on top of the current offer.'],

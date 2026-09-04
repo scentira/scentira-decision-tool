@@ -1,4 +1,4 @@
-import { findConceptMatch, hasConceptOverlap, type MatchCandidate, type MeaningMatch } from '@/lib/semantic-match';
+import { findConceptMatch, hasConceptOverlap, isCommercialScopeCompatible, type MatchCandidate, type MeaningMatch } from '@/lib/semantic-match';
 
 const MODEL='Xenova/all-MiniLM-L6-v2';
 const MODEL_SOURCE=`https://huggingface.co/${MODEL}`;
@@ -24,14 +24,16 @@ function dot(a:number[],b:number[]){let total=0;for(let i=0;i<a.length;i++)total
 export async function findMeaningMatch(query: string, precedents: MatchCandidate[],onDiagnostic?:(diagnostic:MeaningDiagnostic)=>void): Promise<MeaningMatch | null> {
   if(!query.trim()||!precedents.length)return null;
   const runtime=meaningRuntimeStatus();
-  const knownMatch=findConceptMatch(query,precedents);if(knownMatch){onDiagnostic?.({aiAttempted:false,aiSucceeded:false,path:'word-list path',rawModelReply:null,...runtime});return knownMatch;}
+  const eligiblePrecedents=precedents.filter(item=>isCommercialScopeCompatible(query,`${item.title} ${item.summary}`));
+  if(!eligiblePrecedents.length){onDiagnostic?.({aiAttempted:false,aiSucceeded:false,path:'no match',rawModelReply:null,...runtime});return null;}
+  const knownMatch=findConceptMatch(query,eligiblePrecedents);if(knownMatch){onDiagnostic?.({aiAttempted:false,aiSucceeded:false,path:'word-list path',rawModelReply:null,...runtime});return knownMatch;}
   try{
     const encode=await extractor();
-    const count=precedents.length;
-    const key=JSON.stringify(precedents);let queryVector:number[];
+    const count=eligiblePrecedents.length;
+    const key=JSON.stringify(eligiblePrecedents);let queryVector:number[];
     if(candidateCache?.key===key)queryVector=(await encode([query],{pooling:'mean',normalize:true})).tolist()[0];
-    else{const vectors=(await encode([query,...precedents.map(item=>item.title),...precedents.map(item=>item.summary)],{pooling:'mean',normalize:true})).tolist();queryVector=vectors[0];candidateCache={key,titles:vectors.slice(1,count+1),summaries:vectors.slice(count+1)};}
-    const ranked=precedents.map((item,index)=>{const title=dot(queryVector,candidateCache!.titles[index]);const summary=dot(queryVector,candidateCache!.summaries[index]);return{item,title,summary,score:title*.7+summary*.3};}).sort((a,b)=>b.score-a.score);
+    else{const vectors=(await encode([query,...eligiblePrecedents.map(item=>item.title),...eligiblePrecedents.map(item=>item.summary)],{pooling:'mean',normalize:true})).tolist();queryVector=vectors[0];candidateCache={key,titles:vectors.slice(1,count+1),summaries:vectors.slice(count+1)};}
+    const ranked=eligiblePrecedents.map((item,index)=>{const title=dot(queryVector,candidateCache!.titles[index]);const summary=dot(queryVector,candidateCache!.summaries[index]);return{item,title,summary,score:title*.7+summary*.3};}).sort((a,b)=>b.score-a.score);
     const best=ranked[0];const margin=best&&ranked[1]?best.score-ranked[1].score:best?.score??0;
     const guarded=best&&best.score>=0.18&&hasConceptOverlap(query,`${best.item.title} ${best.item.summary}`);
     if(best&&margin>=0.05&&(best.score>=0.45||guarded)){const result={id:best.item.id,reason:`Closest meaning match (${Math.round(best.score*100)}%).`,score:best.score};onDiagnostic?.({aiAttempted:true,aiSucceeded:true,path:'meaning-model path',rawModelReply:null,...runtime});return result;}

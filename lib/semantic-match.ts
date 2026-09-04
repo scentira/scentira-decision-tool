@@ -1,6 +1,14 @@
 export type MatchCandidate = { id: string; title: string; summary: string };
 export type MeaningMatch = { id: string; reason: string; score?: number };
 
+const channelDiscountPattern=/\b(?:reseller|wholesale|distributor|retailer|channel\s+partner|bulk\s+discount|volume\s+discount|resale\s+margin|volume\s+commitment)\b/i;
+const channelScopePattern=/\b(?:reseller|wholesale|distributor|retailer|channel\s+partner|bulk|volume|resale)\b/i;
+const discountPattern=/\b(?:discount|price\s+reduction|lower\s+price)\b/i;
+
+export function isCommercialScopeCompatible(query:string,candidate:string){
+  return !channelDiscountPattern.test(query)||(channelScopePattern.test(candidate)&&(!discountPattern.test(query)||discountPattern.test(candidate)));
+}
+
 const conceptPatterns: Array<[string, RegExp]> = [
   ['swapped order', /\b(?:swapp?ed?|cross(?:ed)?|mixed?\s+(?:up|between)|labels?\s+(?:got\s+)?mixed|wrong\s+(?:customer|buyer)|meant\s+for\s+another|each\s+other'?s)\b/i],
   ['final delivery station', /\b(?:final|last[- ]?mile|destination|last\s+local)\s+(?:delivery\s+)?(?:station|hub|depot|branch|cent(?:er|re))\b/i],
@@ -46,7 +54,7 @@ export function hasConceptOverlap(left:string,right:string){
 export function findConceptMatch(query: string, candidates: MatchCandidate[]): MeaningMatch | null {
   const queryConcepts = concepts(query);
   if (queryConcepts.size < 2) return null;
-  const ranked = candidates.map(candidate => {
+  const ranked = candidates.filter(candidate=>isCommercialScopeCompatible(query,`${candidate.title} ${candidate.summary}`)).map(candidate => {
     const candidateConcepts = concepts(`${candidate.title} ${candidate.summary}`);
     const shared = [...queryConcepts].filter(concept => candidateConcepts.has(concept));
     return { candidate, shared, score: shared.length / Math.max(queryConcepts.size, candidateConcepts.size, 1) };
