@@ -466,7 +466,8 @@ export function PublicDemo({
               })}
               {rejectedMatch && (
                 <div className="escalation-callout" role="status">
-                  <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                  <div><p>No approved precedent covers this situation yet. Ask the founder.</p></div>
+                  <Button onClick={escalate}>Send fictional request to the founder</Button>
                 </div>
               )}
               {!searchingMeaning && !learnedPrecedent && !results.length && (
@@ -511,13 +512,13 @@ export function PublicDemo({
                 <Textarea id="demo-escalation" readOnly value={preview} />
                 <Button
                   className="demo-finish"
-                  onClick={() => setPreviewDone(true)}
+                  onClick={() => { setPreviewDone(true); captureEvent("escalation_submitted", "demo"); }}
                 >
-                  Finish preview
+                  Submit fictional request
                 </Button>
                 {previewDone && (
                   <p className="notice" role="status">
-                    Preview complete.
+                    Fictional request submitted for founder review.
                   </p>
                 )}
               </section>

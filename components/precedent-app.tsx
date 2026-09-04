@@ -740,6 +740,7 @@ export default function PrecedentApp({
         },
       );
       captureEvent("case_submitted", "real");
+      captureEvent("escalation_submitted", "real");
       setEscalation(null);
       setView("submitted");
       setExpandedCase(response.case?.id || null);
@@ -1431,7 +1432,12 @@ export default function PrecedentApp({
                       ))}
                       {rejectedMatch && (
                         <div className="escalation-callout" role="status">
-                          <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                          <div>
+                            <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                          </div>
+                          <Button onClick={() => escalate(matches[0]?.entry)}>
+                            Send to the founder
+                          </Button>
                         </div>
                       )}
                     </>

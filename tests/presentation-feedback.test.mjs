@@ -49,3 +49,13 @@ test('matched decisions show comparison context and can be rejected safely',asyn
  }
  for(const source of [app,learning,demo,selector])assert.match(source,/This is not my situation, ask the founder/);
 });
+
+test('a rejected match continues into the existing real and fictional escalation flows',async()=>{
+ const [app,learning,demo]=await Promise.all([read('../components/precedent-app.tsx'),read('../components/demo-learning.tsx'),read('../components/public-demo.tsx')]);
+ assert.match(app,/Send to the founder/);
+ assert.match(app,/onClick=\{\(\) => escalate\(matches\[0\]\?\.entry\)\}/);
+ assert.match(learning,/Send fictional request to the founder/);
+ assert.match(demo,/Submit fictional request/);
+ for(const source of [app,learning,demo])assert.match(source,/escalation_submitted/);
+ assert.match(learning,/useState\(true\)/);
+});

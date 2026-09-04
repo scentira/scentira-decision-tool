@@ -2,7 +2,7 @@
 import posthog from 'posthog-js';
 
 export type Surface='demo'|'real';
-export type AnalyticsEvent='case_submitted'|'decision_approved'|'precedent_search'|'precedent_matched'|'condition_row_selected'|'decision_applied'|'precedent_added';
+export type AnalyticsEvent='case_submitted'|'decision_approved'|'precedent_search'|'precedent_matched'|'condition_row_selected'|'decision_applied'|'precedent_added'|'escalation_submitted';
 export type FeedbackValue='yes'|'no'|'not_sure';
 
 // This is the only analytics capture surface. Never add case or policy data here.

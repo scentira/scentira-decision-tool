@@ -65,7 +65,7 @@ function SingleConditionSelector({
   precedentId: string;
   matchScore: number;
 }) {
-  const [selected, setSelected] = useState(false);
+  const [selected, setSelected] = useState(true);
   return (
     <>
       <div
@@ -266,6 +266,7 @@ export function DemoLearningEmployee({
   const [meaningMatchId, setMeaningMatchId] = useState<string | null>(null);
   const [meaningMatchScore, setMeaningMatchScore] = useState(1);
   const [rejected, setRejected] = useState(false);
+  const [rejectionSubmitted, setRejectionSubmitted] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [diagnostic, setDiagnostic] = useState<SearchDiagnosticData | null>(
@@ -316,6 +317,7 @@ export function DemoLearningEmployee({
     setError("");
     setApplied(false);
     setRejected(false);
+    setRejectionSubmitted(false);
     setMeaningMatchId(null);
     setQuery(nextQuery);
     setText(nextQuery);
@@ -511,6 +513,16 @@ export function DemoLearningEmployee({
         {rejected && (
           <section className="edit-panel" role="status">
             <p>No approved precedent covers this situation yet. Ask the founder.</p>
+            {!rejectionSubmitted ? (
+              <Button onClick={() => { onSubmit(query || text); captureEvent("escalation_submitted", "demo"); setRejectionSubmitted(true); }}>
+                Send fictional request to the founder
+              </Button>
+            ) : (
+              <>
+                <p className="notice">Fictional request submitted for founder review.</p>
+                <Button onClick={onFounder}>Open Founder (demo) to review</Button>
+              </>
+            )}
           </section>
         )}
       </div>
