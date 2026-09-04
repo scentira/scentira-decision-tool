@@ -24,7 +24,7 @@ import {
 } from "@/components/search-diagnostic";
 import { ConditionSelector } from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
-import { captureEvent } from "@/lib/analytics";
+import { captureEvent, capturePrecedentRejected } from "@/lib/analytics";
 
 type DemoLibraryEntry = {
   id: string;
@@ -46,7 +46,7 @@ function findLibraryWordMatch(entries: DemoLibraryEntry[], query: string) {
             .length / Math.max(words.length, 1),
       }))
       .sort((a, b) => b.score - a.score)
-      .find((result) => result.score >= 0.66)?.entry || null
+      .find((result) => result.score >= 0.66) || null
   );
 }
 
@@ -54,10 +54,16 @@ function SingleConditionSelector({
   condition,
   decision,
   onApply,
+  onReject,
+  precedentId,
+  matchScore,
 }: {
   condition: string;
   decision: string;
   onApply: () => void;
+  onReject: () => void;
+  precedentId: string;
+  matchScore: number;
 }) {
   const [selected, setSelected] = useState(false);
   return (
@@ -81,15 +87,14 @@ function SingleConditionSelector({
           <strong>{decision}</strong>
         </button>
       </div>
-      <Button
-        disabled={!selected}
-        onClick={() => {
-          captureEvent("decision_applied", "demo");
-          onApply();
-        }}
-      >
-        Apply selected decision
-      </Button>
+      <div className="match-actions">
+        <Button disabled={!selected} onClick={() => { captureEvent("decision_applied", "demo"); onApply(); }}>
+          Apply selected decision
+        </Button>
+        <Button variant="outline" onClick={() => { capturePrecedentRejected("demo",precedentId,matchScore); onReject(); }}>
+          This is not my situation, ask the founder
+        </Button>
+      </div>
     </>
   );
 }
@@ -166,21 +171,30 @@ function LibraryDecisionCard({
   entry,
   applied,
   onApply,
+  onReject,
+  matchScore,
 }: {
   entry: DemoLibraryEntry;
   applied: boolean;
   onApply: () => void;
+  onReject: () => void;
+  matchScore: number;
 }) {
   const fragrance = isFragrancePrecedent(entry);
   return (
     <section className="edit-panel" aria-label="Approved library precedent">
-      <h2>Approved precedent found</h2>
+      <h2>Closest approved decision</h2>
+      <p className="muted">Check that this situation matches yours before applying.</p>
       <h3>{entry.title}</h3>
+      <p className="situation-copy">{entry.situation}</p>
       <div className="rule-box">
         <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
         {fragrance ? (
           <ConditionSelector
             surface="demo"
+            precedentId={entry.id}
+            matchScore={matchScore}
+            onReject={onReject}
             onApply={(row) => {
               const demoUse = {
                 precedentId: entry.id,
@@ -198,6 +212,9 @@ function LibraryDecisionCard({
             condition={entry.exception}
             decision={entry.decision}
             onApply={onApply}
+            onReject={onReject}
+            precedentId={entry.id}
+            matchScore={matchScore}
           />
         ) : null}
       </div>
@@ -247,6 +264,8 @@ export function DemoLearningEmployee({
   const [futureCase, setFutureCase] = useState(state.precedents.length > 0);
   const [applied, setApplied] = useState(false);
   const [meaningMatchId, setMeaningMatchId] = useState<string | null>(null);
+  const [meaningMatchScore, setMeaningMatchScore] = useState(1);
+  const [rejected, setRejected] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [diagnostic, setDiagnostic] = useState<SearchDiagnosticData | null>(
@@ -264,7 +283,7 @@ export function DemoLearningEmployee({
   const match =
     wordMatch ??
     (meaningPrecedent
-      ? { precedent: meaningPrecedent, score: 1, shared: [] }
+      ? { precedent: meaningPrecedent, score: meaningMatchScore, shared: [] }
       : null);
   const activeLibrary = libraryEntries.filter(
     (item) => item.status === "Active",
@@ -275,7 +294,8 @@ export function DemoLearningEmployee({
     query && query === text && meaningMatchId
       ? activeLibrary.find((item) => item.id === meaningMatchId)
       : null;
-  const libraryMatch = libraryWordMatch ?? libraryMeaningMatch;
+  const libraryMatch = libraryWordMatch?.entry ?? libraryMeaningMatch;
+  const libraryMatchScore = libraryWordMatch?.score ?? meaningMatchScore;
   const pending = state.cases.find(
     (c) => c.situation === query && c.status === "Pending founder approval",
   );
@@ -295,6 +315,7 @@ export function DemoLearningEmployee({
     captureEvent("precedent_search", "demo");
     setError("");
     setApplied(false);
+    setRejected(false);
     setMeaningMatchId(null);
     setQuery(nextQuery);
     setText(nextQuery);
@@ -342,6 +363,7 @@ export function DemoLearningEmployee({
       printSearchDiagnostic(next);
     });
     setMeaningMatchId(semantic?.id ?? null);
+    setMeaningMatchScore(semantic?.score ?? 1);
     setChecking(false);
   }
   return (
@@ -443,13 +465,15 @@ export function DemoLearningEmployee({
             )}
           </section>
         )}
-        {match && !applied && (
+        {match && !applied && !rejected && (
           <section
             className="edit-panel"
             aria-label="Check precedent conditions"
           >
-            <h2>Approved precedent found</h2>
+            <h2>Closest approved decision</h2>
+            <p className="muted">Check that this situation matches yours before applying.</p>
             <h3>{match.precedent.title}</h3>
+            <p className="situation-copy">{match.precedent.sourceCase.situation}</p>
             <div className="rule-box">
               <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
               <SingleConditionSelector
@@ -459,6 +483,9 @@ export function DemoLearningEmployee({
                   onMatch();
                   setApplied(true);
                 }}
+                onReject={() => setRejected(true)}
+                precedentId={match.precedent.id}
+                matchScore={match.score}
               />
             </div>
           </section>
@@ -469,7 +496,7 @@ export function DemoLearningEmployee({
             <DecisionFeedback />
           </>
         )}
-        {libraryMatch && (
+        {libraryMatch && !rejected && (
           <LibraryDecisionCard
             entry={libraryMatch}
             applied={applied}
@@ -477,7 +504,14 @@ export function DemoLearningEmployee({
               onMatch();
               setApplied(true);
             }}
+            onReject={() => setRejected(true)}
+            matchScore={libraryMatchScore}
           />
+        )}
+        {rejected && (
+          <section className="edit-panel" role="status">
+            <p>No approved precedent covers this situation yet. Ask the founder.</p>
+          </section>
         )}
       </div>
       <details className="rule-details">

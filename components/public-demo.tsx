@@ -17,7 +17,7 @@ import {
   type DemoLearningState,
 } from "@/lib/demo-learning";
 import { DiscountDecision } from "@/components/discount-decision";
-import { captureEvent } from "@/lib/analytics";
+import { captureEvent, capturePrecedentRejected } from "@/lib/analytics";
 import { UsageMetricsPanel } from "@/components/usage-metrics";
 import { DecisionFeedback } from "@/components/decision-feedback";
 import {
@@ -58,6 +58,8 @@ export function PublicDemo({
   const [previewDone, setPreviewDone] = useState(false);
   const [discountApplied, setDiscountApplied] = useState(false);
   const [meaningMatchId, setMeaningMatchId] = useState<string | null>(null);
+  const [meaningMatchScore, setMeaningMatchScore] = useState(1);
+  const [rejectedMatch, setRejectedMatch] = useState(false);
   const [searchingMeaning, setSearchingMeaning] = useState(false);
   const [diagnostic, setDiagnostic] = useState<SearchDiagnosticData | null>(
     null,
@@ -139,6 +141,7 @@ export function PublicDemo({
     setError("");
     setQuery(next);
     setMeaningMatchId(null);
+    setRejectedMatch(false);
     setCategory("All categories");
     setBrowse(false);
     setOpen("");
@@ -173,6 +176,7 @@ export function PublicDemo({
       printSearchDiagnostic(report);
     });
     setMeaningMatchId(semantic?.id ?? null);
+    setMeaningMatchScore(semantic?.score ?? 1);
     setSearchingMeaning(false);
     if (semantic) captureEvent("precedent_matched", "demo");
   }
@@ -354,9 +358,9 @@ export function PublicDemo({
                 <h2>
                   {searchingMeaning
                     ? "Understanding your question…"
-                    : learnedPrecedent || results.length
+                    : !rejectedMatch && (learnedPrecedent || results.length)
                       ? query
-                        ? "Closest decisions"
+                        ? "Closest approved decision"
                         : "Explore decisions"
                       : "Nothing like this has come up before"}
                 </h2>
@@ -366,13 +370,19 @@ export function PublicDemo({
                   ACTIVE PRECEDENTS
                 </span>
               </div>
-              {learnedPrecedent && (
+              {query && !rejectedMatch && (learnedPrecedent || results[0]) && (
+                <div className="match-introduction">
+                  <p>Check that this situation matches yours before applying.</p>
+                  <p className="situation-copy">{learnedPrecedent?.sourceCase.situation || results[0]?.entry.situation}</p>
+                </div>
+              )}
+              {learnedPrecedent && !rejectedMatch && (
                 <>
                   <LearnedDecisionCard precedent={learnedPrecedent} />
                   <DecisionFeedback surface="demo" />
                 </>
               )}
-              {results.map(({ entry }, index) => {
+              {!rejectedMatch && results.map(({ entry, score }, index) => {
                 const expanded = open === entry.id || (!open && index === 0);
                 return (
                   <article
@@ -412,6 +422,11 @@ export function PublicDemo({
                             <DecisionFeedback surface="demo" />
                           </>
                         )}
+                        <div className="match-actions">
+                          <Button variant="outline" onClick={() => { capturePrecedentRejected("demo",entry.id,meaningMatchId===entry.id?meaningMatchScore:score); setRejectedMatch(true); }}>
+                            This is not my situation, ask the founder
+                          </Button>
+                        </div>
                         <details className="rule-details">
                           <summary>
                             Precedent, reasoning &amp; exception
@@ -449,6 +464,11 @@ export function PublicDemo({
                   </article>
                 );
               })}
+              {rejectedMatch && (
+                <div className="escalation-callout" role="status">
+                  <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                </div>
+              )}
               {!searchingMeaning && !learnedPrecedent && !results.length && (
                 <p className="muted">
                   No matching decision. Explore what asking for a decision would

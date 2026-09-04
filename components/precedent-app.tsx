@@ -56,7 +56,7 @@ import {
   type Role,
   type Situation,
 } from "@/lib/domain";
-import { captureEvent, capturePageview } from "@/lib/analytics";
+import { captureEvent, capturePageview, capturePrecedentRejected } from "@/lib/analytics";
 import { CaseFeedback } from "@/components/case-feedback";
 import {
   findMeaningMatch,
@@ -624,6 +624,8 @@ export default function PrecedentApp({
   const [libraryLimit, setLibraryLimit] = useState(20);
   const [createdTest, setCreatedTest] = useState("");
   const [meaningEntryId, setMeaningEntryId] = useState<string | null>(null);
+  const [meaningEntryScore, setMeaningEntryScore] = useState(1);
+  const [rejectedMatch, setRejectedMatch] = useState(false);
   const [searchingMeaning, setSearchingMeaning] = useState(false);
   const [searchDiagnostic, setSearchDiagnostic] =
     useState<SearchDiagnosticData | null>(null);
@@ -895,6 +897,7 @@ export default function PrecedentApp({
     setQueryError("");
     setGuidedSituation("");
     setMeaningEntryId(null);
+    setRejectedMatch(false);
     setQuery(nextQuery);
     const confident = search(data.entries, nextQuery).find(
       (result) => !result.possible,
@@ -947,6 +950,7 @@ export default function PrecedentApp({
       printSearchDiagnostic(report);
     });
     setMeaningEntryId(semantic?.id ?? null);
+    setMeaningEntryScore(semantic?.score ?? 1);
     setSearchingMeaning(false);
     if (semantic) void recordRealMatch();
   }
@@ -969,7 +973,7 @@ export default function PrecedentApp({
   const matches = wordMatches.length
     ? wordMatches
     : meaningEntry
-      ? [{ entry: meaningEntry, score: 1, possible: false }]
+      ? [{ entry: meaningEntry, score: meaningEntryScore, possible: false }]
       : [];
   const active = data.entries.filter((e) => e.status === "Active");
   const founderOnly =
@@ -1316,7 +1320,7 @@ export default function PrecedentApp({
                       : searchingMeaning
                         ? "Checking approved precedents by meaning…"
                         : learnedSearchMatch || matches.length
-                          ? "Closest precedents"
+                          ? "Closest approved decision"
                           : "Nothing like this has come up before"}
                   </h2>
                   <span>
@@ -1344,10 +1348,18 @@ export default function PrecedentApp({
                 ) : (
                   !searchingMeaning && (
                     <>
+                      {(learnedSearchMatch || matches[0]) && !rejectedMatch && (
+                        <div className="match-introduction">
+                          <p>Check that this situation matches yours before applying.</p>
+                          <p className="situation-copy">
+                            {learnedSearchMatch?.sourceCase.situation || matches[0]?.entry.situation}
+                          </p>
+                        </div>
+                      )}
                       {learnedSearchMatch && (
                         <LearnedDecisionCard precedent={learnedSearchMatch} />
                       )}{" "}
-                      {matches.map(({ entry, possible }, i) => (
+                      {!rejectedMatch && matches.map(({ entry, possible, score }, i) => (
                         <PrecedentCard
                           key={`${query}-${entry.id}`}
                           followUp={
@@ -1355,6 +1367,9 @@ export default function PrecedentApp({
                               isFragrancePrecedent(entry) ? (
                                 <ConditionSelector
                                   surface={demo ? "demo" : "real"}
+                                  precedentId={entry.id}
+                                  matchScore={score}
+                                  onReject={() => setRejectedMatch(true)}
                                   onApply={async (row) => {
                                     if (demo) return;
                                     await request("/api/state", {
@@ -1380,6 +1395,9 @@ export default function PrecedentApp({
                                       condition={entry.exception}
                                       decision={entry.decision}
                                     />
+                                    <Button variant="outline" onClick={() => { capturePrecedentRejected(analyticsSurface,entry.id,score); setRejectedMatch(true); }}>
+                                      This is not my situation, ask the founder
+                                    </Button>
                                   </div>
                                 )
                               ) : (
@@ -1390,6 +1408,9 @@ export default function PrecedentApp({
                                       condition={entry.exception}
                                       decision={entry.decision}
                                     />
+                                    <Button variant="outline" onClick={() => { capturePrecedentRejected(analyticsSurface,entry.id,score); setRejectedMatch(true); }}>
+                                      This is not my situation, ask the founder
+                                    </Button>
                                   </div>
                                   <StaffFollowUp
                                     entryId={entry.id}
@@ -1408,6 +1429,11 @@ export default function PrecedentApp({
                           onReport={demo ? undefined : setReport}
                         />
                       ))}
+                      {rejectedMatch && (
+                        <div className="escalation-callout" role="status">
+                          <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                        </div>
+                      )}
                     </>
                   )
                 )}

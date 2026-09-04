@@ -1,5 +1,5 @@
 export type MatchCandidate = { id: string; title: string; summary: string };
-export type MeaningMatch = { id: string; reason: string };
+export type MeaningMatch = { id: string; reason: string; score?: number };
 
 const conceptPatterns: Array<[string, RegExp]> = [
   ['swapped order', /\b(?:swapp?ed?|cross(?:ed)?|mixed?\s+(?:up|between)|labels?\s+(?:got\s+)?mixed|wrong\s+(?:customer|buyer)|meant\s+for\s+another|each\s+other'?s)\b/i],

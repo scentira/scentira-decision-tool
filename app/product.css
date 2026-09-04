@@ -50,6 +50,7 @@
 .rule-box{margin:14px 0;background:var(--secondary);border-radius:8px;padding:14px 16px}
 .condition-list{display:grid;margin-top:10px}.condition-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.55fr);gap:18px;padding:11px 0;border-top:1px solid color-mix(in srgb,var(--foreground) 14%,transparent)}.condition-row:first-child{border-top:0}.condition-row strong{font-weight:700}
 .condition-choice{width:100%;font:inherit;color:inherit;text-align:left;background:transparent;border:0;cursor:pointer}.condition-choice:hover,.condition-choice.selected{background:color-mix(in srgb,var(--primary) 9%,transparent)}.condition-choice.selected{box-shadow:inset 3px 0 var(--primary);padding-left:12px}.condition-list+.button{margin-top:14px}
+.match-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.match-introduction{margin-bottom:12px}.match-introduction .situation-copy{font-weight:600}
 .precedent-card:not(.case-card)>.rule-box,.precedent-card.expanded>.rule-box{background:transparent;padding:0}
 .precedent-card.expanded>.rule-box>p{font-family:Georgia,serif;font-size:21px;line-height:1.5;color:var(--foreground)}
 .rule-details{border-top:1px solid var(--border);margin-top:16px;padding-top:12px}

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fragranceConditions } from "@/lib/fragrance-conditions";
-import { captureEvent, type Surface } from "@/lib/analytics";
+import { captureEvent, capturePrecedentRejected, type Surface } from "@/lib/analytics";
 
 export function ConditionSummary({
   condition,
@@ -24,8 +24,14 @@ export function ConditionSummary({
 export function ConditionSelector({
   onApply,
   surface,
+  precedentId,
+  matchScore = 1,
+  onReject,
 }: {
   surface: Surface;
+  precedentId?: string;
+  matchScore?: number;
+  onReject?: () => void;
   onApply: (row: (typeof fragranceConditions)[number]) => void | Promise<void>;
 }) {
   const [selected, setSelected] = useState("");
@@ -57,23 +63,30 @@ export function ConditionSelector({
           </button>
         ))}
       </div>
-      <Button
-        disabled={!row || busy || applied}
-        onClick={async () => {
+      <div className="match-actions">
+        <Button
+          disabled={!row || busy || applied}
+          onClick={async () => {
           if (!row) return;
           setBusy(true);
           await onApply(row);
           setApplied(true);
           captureEvent("decision_applied", surface);
           setBusy(false);
-        }}
-      >
+          }}
+        >
         {applied
           ? "Decision applied"
           : busy
             ? "Saving…"
             : "Apply selected decision"}
-      </Button>
+        </Button>
+        {onReject && precedentId && (
+          <Button variant="outline" onClick={() => { capturePrecedentRejected(surface,precedentId,matchScore); onReject(); }}>
+            This is not my situation, ask the founder
+          </Button>
+        )}
+      </div>
       {applied && row && (
         <p className="notice" role="status">
           Selected: {row.situation} — {row.decision}

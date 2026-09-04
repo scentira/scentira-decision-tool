@@ -39,3 +39,13 @@ test('every ordinary matched precedent shows conditions and its decision immedia
  assert.match(selector,/Conditions and decision/);
  assert.match(selector,/condition-row/);
 });
+
+test('matched decisions show comparison context and can be rejected safely',async()=>{
+ const [app,learning,demo,selector]=await Promise.all([read('../components/precedent-app.tsx'),read('../components/demo-learning.tsx'),read('../components/public-demo.tsx'),read('../components/condition-selector.tsx')]);
+ for(const source of [app,learning,demo]){
+  assert.match(source,/Closest approved decision/);
+  assert.match(source,/Check that this situation matches yours before applying\./);
+  assert.match(source,/No approved precedent covers this situation yet\. Ask the founder\./);
+ }
+ for(const source of [app,learning,demo,selector])assert.match(source,/This is not my situation, ask the founder/);
+});

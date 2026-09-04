@@ -34,7 +34,7 @@ export async function findMeaningMatch(query: string, precedents: MatchCandidate
     const ranked=precedents.map((item,index)=>{const title=dot(queryVector,candidateCache!.titles[index]);const summary=dot(queryVector,candidateCache!.summaries[index]);return{item,title,summary,score:title*.7+summary*.3};}).sort((a,b)=>b.score-a.score);
     const best=ranked[0];const margin=best&&ranked[1]?best.score-ranked[1].score:best?.score??0;
     const guarded=best&&best.score>=0.18&&hasConceptOverlap(query,`${best.item.title} ${best.item.summary}`);
-    if(best&&margin>=0.05&&(best.score>=0.45||guarded)){const result={id:best.item.id,reason:`Closest meaning match (${Math.round(best.score*100)}%).`};onDiagnostic?.({aiAttempted:true,aiSucceeded:true,path:'meaning-model path',rawModelReply:null,...runtime});return result;}
+    if(best&&margin>=0.05&&(best.score>=0.45||guarded)){const result={id:best.item.id,reason:`Closest meaning match (${Math.round(best.score*100)}%).`,score:best.score};onDiagnostic?.({aiAttempted:true,aiSucceeded:true,path:'meaning-model path',rawModelReply:null,...runtime});return result;}
     onDiagnostic?.({aiAttempted:true,aiSucceeded:false,path:'no match',rawModelReply:null,...runtime});
     return null;
   }catch(error){
