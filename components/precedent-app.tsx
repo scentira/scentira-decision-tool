@@ -56,6 +56,7 @@ import {
   type Role,
   type Situation,
 } from "@/lib/domain";
+import { applyAction } from "@/lib/domain-actions";
 import { captureEvent, capturePageview, capturePrecedentRejected } from "@/lib/analytics";
 import { CaseFeedback } from "@/components/case-feedback";
 import {
@@ -452,17 +453,20 @@ function DecisionForm({
               {error}
             </p>
           )}
-          <Button type="submit" disabled={busy}>
-            {busy
-              ? "Saving…"
-              : error
-                ? "Retry"
-                : draft.kind === "review"
-                  ? publish === "yes"
-                    ? "Approve for future use"
-                    : "Keep as one-off"
-                  : "Save decision"}
-          </Button>
+          <div className="filters">
+            <Button type="submit" disabled={busy || (role === "founder" && !publish)}>
+              {busy
+                ? "Saving…"
+                : error
+                  ? "Retry"
+                  : draft.kind === "review"
+                    ? publish === "yes"
+                      ? "Approve for future use"
+                      : "Keep as one-off"
+                    : "Save decision"}
+            </Button>
+            {role === "founder" && !publish && <span className="muted">Choose Future use before submitting.</span>}
+          </div>
         </fieldset>
       </form>
     </section>
@@ -790,7 +794,23 @@ export default function PrecedentApp({
     }
   }
   async function saveDecision(action: Record<string, unknown>) {
-    if (demo) throw new Error("Demo is read-only.");
+    if (demo) {
+      const next = applyAction(
+        { entries: data.entries, cases: data.cases, notices: [] },
+        action,
+        data.role,
+      );
+      setData((previous) => ({
+        ...previous,
+        entries: next.entries,
+        cases: next.cases,
+      }));
+      if (action.savePrecedent === true || action.kind === "promote" || action.kind === "replace")
+        captureEvent("decision_approved", "demo");
+      setNotice(action.savePrecedent === true ? "Fictional precedent created for this session." : "Fictional decision saved for this session.");
+      setDraft(null);
+      return;
+    }
     try {
       const response = await request<{ warning?: string }>(
         "/api/state",
@@ -1769,7 +1789,7 @@ export default function PrecedentApp({
                       {item.answer && (
                         <CaseFeedback
                           item={item}
-                          readOnly={demo}
+                          readOnly={demo && data.role !== "founder"}
                           onSave={saveDecision}
                         />
                       )}{" "}
@@ -1794,7 +1814,7 @@ export default function PrecedentApp({
                   )}
                   {draft?.item?.id === id ? (
                     <DecisionForm
-                      readOnly={demo}
+                      readOnly={demo && data.role !== "founder"}
                       key={`${draft.kind}-${id}`}
                       draft={draft}
                       role={data.role}
@@ -1924,7 +1944,7 @@ export default function PrecedentApp({
         )}
         {draft && view !== "queue" && view !== "submitted" && (
           <DecisionForm
-            readOnly={demo}
+            readOnly={demo && data.role !== "founder"}
             key={`${draft.kind}-${draft.item?.id || draft.entry?.id}`}
             draft={draft}
             role={data.role}

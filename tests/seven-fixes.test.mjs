@@ -35,7 +35,7 @@ test('privacy, navigation, public steps and honest notification copy are present
  const [header,app,demo,queue]=await Promise.all([read('../components/demo-header.tsx'),read('../components/precedent-app.tsx'),read('../components/demo-learning.tsx'),read('../components/decision-queue.tsx')]);
  assert.match(header,/Your company data/);assert.match(header,/stored in Convex/);assert.match(header,/titles and summaries/);assert.match(header,/In-app deletion is not available/);
  assert.match(demo,/Handle a new case|demo-steps/);assert.match(app,/Search precedents/);assert.match(queue,/Founder queue/);
- assert.match(demo,/Search an approved precedent/);assert.match(demo,/Lovish Goyal/);assert.match(demo,/lovish@scentira\.in/);
+ assert.match(demo,/Search an approved precedent/);assert.match(demo,/Gazal/);assert.match(demo,/gazal@scentira\.in/);
  assert.match(app,/No response time is guaranteed\. Email delivery is not connected/);
  assert.match(demo,/No response time is guaranteed; this demo does not send notifications/);
 });

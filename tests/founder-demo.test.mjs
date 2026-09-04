@@ -43,8 +43,12 @@ test('founder demo shares founder UI and has independent read and write guards',
   const source=readFileSync(new URL('../components/precedent-app.tsx',import.meta.url),'utf8');
   assert.match(source,/<PrecedentApp[\s\S]*?key=\{demoPreviewRole\}[\s\S]*?demo/);
   assert.match(source,/const refresh\s*=\s*useCallback\([\s\S]*?if \(demo\) return/);
-  for(const fn of ['saveReport','saveDecision'])assert.match(source,new RegExp(`async function ${fn}\\([\\s\\S]*?if \\(demo\\) throw`));
+  assert.match(source,/async function saveReport\([\s\S]*?if \(demo\) throw/);
   assert.match(source,/<fieldset disabled=\{readOnly\}/);
   assert.match(source,/e\.preventDefault\(\);\s*if \(readOnly\) return/);
+  assert.match(source,/readOnly=\{demo && data\.role !== "founder"\}/);
+  assert.match(source,/applyAction\([\s\S]*?notices: \[\][\s\S]*?action,[\s\S]*?data\.role/);
+  assert.match(source,/disabled=\{busy \|\| \(role === "founder" && !publish\)\}/);
+  assert.match(source,/Choose Future use before submitting\./);
   assert.match(source,/view === "manage" &&[\s\S]*?!demo &&[\s\S]*?data\.role === "founder"[\s\S]*?Add precedent/);
 });
