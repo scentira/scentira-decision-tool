@@ -29,6 +29,8 @@ import {
   printSearchDiagnostic,
   type SearchDiagnosticData,
 } from "@/components/search-diagnostic";
+import { SearchExamples } from "@/components/search-examples";
+import { buildSearchExamples } from "@/lib/search-examples";
 
 export function PublicDemo({
   onLogin,
@@ -74,6 +76,7 @@ export function PublicDemo({
   const activeEntries = demoEntries.filter(
     (entry) => entry.status === "Active",
   );
+  const searchExamples = buildSearchExamples(activeEntries);
   const words = tokens(query || "");
   const learnedWordMatch = query
     ? findLearnedPrecedent(learningState.precedents, query)
@@ -108,9 +111,8 @@ export function PublicDemo({
   ).filter(
     ({ entry }) => category === "All categories" || entry.category === category,
   );
-  async function find(e: FormEvent) {
-    e.preventDefault();
-    const next = text.trim();
+  async function runSearch(value = text) {
+    const next = value.trim();
     if (!next) {
       setError("Describe the situation first.");
       return;
@@ -179,6 +181,10 @@ export function PublicDemo({
     setMeaningMatchScore(semantic?.score ?? 1);
     setSearchingMeaning(false);
     if (semantic) captureEvent("precedent_matched", "demo");
+  }
+  async function find(e: FormEvent) {
+    e.preventDefault();
+    await runSearch();
   }
   function escalate() {
     setPreview(text.trim() || "A fictional situation needing a decision.");
@@ -322,6 +328,13 @@ export function PublicDemo({
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Try: a damaged delivery, an address change, or a paid influencer collaboration"
               />
+              <SearchExamples
+                examples={searchExamples}
+                onSelect={(example) => {
+                  setText(example.label);
+                  void runSearch(example.label);
+                }}
+              />
               <div className="search-actions">
                 <Button type="submit">
                   <Search size={16} />
@@ -362,7 +375,7 @@ export function PublicDemo({
                       ? query
                         ? "Closest approved decision"
                         : "Explore decisions"
-                      : "Nothing like this has come up before"}
+                      : "This situation is new"}
                 </h2>
                 <span>
                   {demoEntries.filter((entry) => entry.status === "Active")
@@ -466,14 +479,14 @@ export function PublicDemo({
               })}
               {rejectedMatch && (
                 <div className="escalation-callout" role="status">
-                  <div><p>No approved precedent covers this situation yet. Ask the founder.</p></div>
+                  <div><p>This situation is new. Send it to the founder to get an answer. Once answered, everyone can use that decision from then on.</p></div>
                   <Button onClick={escalate}>Send fictional request to the founder</Button>
                 </div>
               )}
               {!searchingMeaning && !learnedPrecedent && !results.length && (
                 <p className="muted">
-                  No matching decision. Explore what asking for a decision would
-                  look like.
+                  Send it to the founder to get an answer. Once answered,
+                  everyone can use that decision from then on.
                 </p>
               )}
               {query !== null &&
@@ -482,8 +495,8 @@ export function PublicDemo({
                 !results.length && (
                   <div className="escalation-callout">
                     <div>
-                      <strong>Explore the next step</strong>
-                      <p>Explore the escalation steps.</p>
+                      <strong>This situation is new</strong>
+                      <p>Sending it to the founder is how it gets answered.</p>
                     </div>
                     <Button onClick={escalate}>Preview escalation</Button>
                   </div>

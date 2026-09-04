@@ -12,7 +12,7 @@ async function completeLearningJourney(page:Page){
   await expect(page.getByRole('heading',{name:'Turn one founder decision into a rule your whole team can reuse.'})).toBeVisible();
 
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await expect(page.getByRole('heading',{name:'No reliable approved precedent in this demo session'})).toBeVisible({timeout:60_000});
+  await expect(page.getByRole('heading',{name:'This situation is new'})).toBeVisible({timeout:60_000});
   await page.getByRole('button',{name:'Submit fictional exception'}).click();
   await expect(page.getByText('Pending founder approval',{exact:true})).toBeVisible();
 
@@ -113,7 +113,7 @@ test('meaning fallback finds plain rewordings and rejects an unrelated case',asy
 
   await page.getByLabel('Describe the situation').fill('An influencer published the wrong launch discount code. Should the campaign post be corrected?');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await expect(page.getByRole('heading',{name:'No reliable approved precedent in this demo session'})).toBeVisible({timeout:60_000});
+  await expect(page.getByRole('heading',{name:'This situation is new'})).toBeVisible({timeout:60_000});
 });
 
 test('a founder demo approval is searchable from Find a precedent',async({page})=>{
@@ -164,7 +164,7 @@ test('browser AI matches meaning without shared wording and rejects unrelated re
   for(const query of ['The office air conditioner is broken.','Can we move the team meeting to Friday?','The founder wants a new advertising campaign.']){
     await page.getByLabel('Describe the situation').fill(query);
     await page.getByRole('button',{name:'Find a decision'}).click();
-    await expect(page.locator('.library-section h2')).toHaveText('Nothing like this has come up before',{timeout:60_000});
+    await expect(page.locator('.library-section h2')).toHaveText('This situation is new',{timeout:60_000});
     await expect(page.locator('.library-section article')).toHaveCount(0);
   }
 });

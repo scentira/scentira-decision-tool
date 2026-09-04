@@ -3,6 +3,53 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fragranceConditions } from "@/lib/fragrance-conditions";
 import { captureEvent, capturePrecedentRejected, type Surface } from "@/lib/analytics";
+import {
+  conditionItems,
+  hasConditionSeparators,
+} from "@/lib/condition-display";
+
+export function ConditionColumnsHeader() {
+  return (
+    <div className="condition-columns-header" aria-hidden="true">
+      <strong>Check this</strong>
+      <strong>Then do this</strong>
+    </div>
+  );
+}
+
+export function ConditionCell({ text }: { text: string }) {
+  const parts = conditionItems(text);
+  const separated = hasConditionSeparators(text);
+  if (!separated) return <span>{text}</span>;
+  return (
+    <ul className="condition-items">
+      {parts.map((part, index) => (
+        <li key={`${index}-${part}`}>{part}</li>
+      ))}
+    </ul>
+  );
+}
+
+export function ConditionRowContent({
+  condition,
+  decision,
+}: {
+  condition: string;
+  decision: string;
+}) {
+  return (
+    <>
+      <div className="condition-cell">
+        <span className="condition-mobile-label">Check this</span>
+        <ConditionCell text={condition || "No additional conditions recorded."} />
+      </div>
+      <div className="condition-cell condition-action-cell">
+        <span className="condition-mobile-label">Then do this</span>
+        <strong>{decision}</strong>
+      </div>
+    </>
+  );
+}
 
 export function ConditionSummary({
   condition,
@@ -13,9 +60,9 @@ export function ConditionSummary({
 }) {
   return (
     <div className="condition-list" aria-label="Conditions and decision">
+      <ConditionColumnsHeader />
       <div className="condition-row">
-        <span>{condition || "No additional conditions recorded."}</span>
-        <strong>{decision}</strong>
+        <ConditionRowContent condition={condition} decision={decision} />
       </div>
     </div>
   );
@@ -45,6 +92,7 @@ export function ConditionSelector({
         role="radiogroup"
         aria-label="Choose the condition that matches"
       >
+        <ConditionColumnsHeader />
         {fragranceConditions.map((item) => (
           <button
             type="button"
@@ -58,8 +106,10 @@ export function ConditionSelector({
               captureEvent("condition_row_selected", surface);
             }}
           >
-            <span>{item.situation}</span>
-            <strong>{item.decision}</strong>
+            <ConditionRowContent
+              condition={item.situation}
+              decision={item.decision}
+            />
           </button>
         ))}
       </div>

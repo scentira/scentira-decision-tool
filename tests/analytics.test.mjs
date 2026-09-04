@@ -11,6 +11,12 @@ test('analytics initializes once from environment and skips localhost by default
  assert.match(source,/autocapture:false/);assert.match(source,/disable_session_recording:true/);
  assert.doesNotMatch(source,/phc_[A-Za-z0-9]/);
 });
+test('production CSP permits only the exact PostHog EU script and connection hosts',()=>{
+ const source=read('../next.config.ts');
+ assert.match(source,/script-src[^`]+https:\/\/eu-assets\.i\.posthog\.com/);
+ assert.match(source,/connect-src[^`]+https:\/\/eu\.i\.posthog\.com https:\/\/eu-assets\.i\.posthog\.com/);
+ assert.doesNotMatch(source,/https:\/\/\*\.posthog\.com/);
+});
 test('capture helper accepts approved count-only events with a required surface',()=>{
  const source=read('../lib/analytics.ts');
  for(const event of ['case_submitted','decision_approved','precedent_search','precedent_matched','condition_row_selected','decision_applied','precedent_added','feedback_given','precedent_rejected_by_user','escalation_submitted'])assert.match(source,new RegExp(event));

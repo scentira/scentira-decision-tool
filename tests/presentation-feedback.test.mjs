@@ -45,7 +45,7 @@ test('matched decisions show comparison context and can be rejected safely',asyn
  for(const source of [app,learning,demo]){
   assert.match(source,/Closest approved decision/);
   assert.match(source,/Check that this situation matches yours before applying\./);
-  assert.match(source,/No approved precedent covers this situation yet\. Ask the founder\./);
+  assert.match(source,/This situation is new\. Send it to the founder to get an answer\. Once answered, everyone/);
  }
  for(const source of [app,learning,demo,selector])assert.match(source,/This is not my situation, ask the founder/);
 });
@@ -57,5 +57,24 @@ test('a rejected match continues into the existing real and fictional escalation
  assert.match(learning,/Send fictional request to the founder/);
  assert.match(demo,/Submit fictional request/);
  for(const source of [app,learning,demo])assert.match(source,/escalation_submitted/);
- assert.match(learning,/useState\(true\)/);
+ assert.match(learning,/options\.length===1\?options\[0\]\.id/);
+});
+
+test('applied view keeps the selected condition and never leaves an empty conditions panel',async()=>{
+ const learning=await read('../components/demo-learning.tsx');
+ assert.match(learning,/aria-label="Applied condition"/);
+ assert.match(learning,/\(!applied \|\| appliedCondition\?\.situation\)/);
+ assert.doesNotMatch(learning,/\{applied \? null : null\}/);
+});
+
+test('phone demo compacts access, copy, input and secondary actions without changing desktop',async()=>{
+ const [header,learning,css]=await Promise.all([read('../components/demo-header.tsx'),read('../components/demo-learning.tsx'),read('../app/product.css')]);
+ assert.match(header,/mobile-access-menu/);assert.match(header,/Founder \(demo\)/);assert.match(header,/CoS \(demo\)/);assert.match(header,/Staff sign-in/);
+ assert.match(learning,/mobile-demo-promise/);assert.match(css,/@media\(max-width:640px\)/);assert.match(css,/min-height:68px;height:68px/);assert.match(css,/learning-actions\{flex-wrap:nowrap/);
+});
+
+test('Founder and CoS demo queues explain their different jobs',async()=>{
+ const app=await read('../components/precedent-app.tsx');
+ assert.match(app,/Review CoS answers and create precedents\./);
+ assert.match(app,/Resolve exceptions and escalate uncertain calls\./);
 });

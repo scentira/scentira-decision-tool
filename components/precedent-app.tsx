@@ -67,6 +67,8 @@ import {
   printSearchDiagnostic,
   type SearchDiagnosticData,
 } from "@/components/search-diagnostic";
+import { SearchExamples } from "@/components/search-examples";
+import { buildSearchExamples } from "@/lib/search-examples";
 import {
   ConditionSelector,
   ConditionSummary,
@@ -888,8 +890,8 @@ export default function PrecedentApp({
     setAccessError("");
     setAccess(true);
   }
-  async function runSearch() {
-    const nextQuery = text.trim();
+  async function runSearch(value = text) {
+    const nextQuery = value.trim();
     if (!nextQuery) {
       setQueryError("Describe the situation first.");
       return;
@@ -977,6 +979,7 @@ export default function PrecedentApp({
       ? [{ entry: meaningEntry, score: meaningEntryScore, possible: false }]
       : [];
   const active = data.entries.filter((e) => e.status === "Active");
+  const searchExamples = buildSearchExamples(active);
   const founderOnly =
     !!escalation &&
     (publicRisk(escalation.text) ||
@@ -1283,6 +1286,13 @@ export default function PrecedentApp({
                 }}
                 placeholder="For example, a customer received a damaged perfume but has no unboxing video…"
               />
+              <SearchExamples
+                examples={searchExamples}
+                onSelect={(example) => {
+                  setText(example.label);
+                  void runSearch(example.label);
+                }}
+              />
               <div className="search-actions">
                 {!demo && (
                   <small>
@@ -1322,7 +1332,7 @@ export default function PrecedentApp({
                         ? "Checking approved precedents by meaning…"
                         : learnedSearchMatch || matches.length
                           ? "Closest approved decision"
-                          : "Nothing like this has come up before"}
+                          : "This situation is new"}
                   </h2>
                   <span>
                     {active.length + (demoLearning?.precedents.length || 0)}{" "}
@@ -1433,7 +1443,7 @@ export default function PrecedentApp({
                       {rejectedMatch && (
                         <div className="escalation-callout" role="status">
                           <div>
-                            <p>No approved precedent covers this situation yet. Ask the founder.</p>
+                            <p>This situation is new. Send it to the founder to get an answer. Once answered, everyone can use that decision from then on.</p>
                           </div>
                           <Button onClick={() => escalate(matches[0]?.entry)}>
                             Send to the founder
@@ -1449,10 +1459,11 @@ export default function PrecedentApp({
                       <strong>
                         {matches.length
                           ? "Not the right fit?"
-                          : "New situation. Human judgment."}
+                          : "This situation is new"}
                       </strong>
                       <p>
-                        Carry your description forward and ask for a decision.
+                        Send it to the founder to get an answer. Once answered,
+                        everyone can use that decision from then on.
                       </p>
                     </div>
                     <Button
@@ -1604,6 +1615,7 @@ export default function PrecedentApp({
         )}
         {(view === "submitted" || view === "queue") && (
           <DecisionQueue
+            roleDescription={demo ? data.role === "founder" ? "Review CoS answers and create precedents." : data.role === "cos" ? "Resolve exceptions and escalate uncertain calls." : undefined : undefined}
             items={[
               ...(demoLearning?.cases || []).map((item) => ({
                 id: item.id,

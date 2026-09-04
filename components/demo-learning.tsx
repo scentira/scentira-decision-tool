@@ -22,7 +22,13 @@ import {
   printSearchDiagnostic,
   type SearchDiagnosticData,
 } from "@/components/search-diagnostic";
-import { ConditionSelector } from "@/components/condition-selector";
+import { SearchExamples } from "@/components/search-examples";
+import { buildSearchExamples } from "@/lib/search-examples";
+import {
+  ConditionColumnsHeader,
+  ConditionRowContent,
+  ConditionSelector,
+} from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
 import { captureEvent, capturePrecedentRejected } from "@/lib/analytics";
 
@@ -33,7 +39,9 @@ type DemoLibraryEntry = {
   decision: string;
   reasoning: string;
   exception: string;
+  category: string;
   status: "Active" | "Superseded";
+  conditionRows?: readonly { id: string; situation: string; decision: string }[];
 };
 function findLibraryWordMatch(entries: DemoLibraryEntry[], query: string) {
   const words = tokens(query);
@@ -57,15 +65,19 @@ function SingleConditionSelector({
   onReject,
   precedentId,
   matchScore,
+  rows,
 }: {
   condition: string;
   decision: string;
-  onApply: () => void;
+  onApply: (row: { id: string; situation: string; decision: string }) => void;
   onReject: () => void;
   precedentId: string;
   matchScore: number;
+  rows?: readonly { id: string; situation: string; decision: string }[];
 }) {
-  const [selected, setSelected] = useState(true);
+  const options=rows?.length?rows:[{id:'only-condition',situation:condition,decision}];
+  const [selected, setSelected] = useState(options.length===1?options[0].id:"");
+  const selectedRow=options.find((item)=>item.id===selected);
   return (
     <>
       <div
@@ -73,22 +85,26 @@ function SingleConditionSelector({
         role="radiogroup"
         aria-label="Choose the condition that matches"
       >
-        <button
+        <ConditionColumnsHeader />
+        {options.map((item)=><button
           type="button"
           role="radio"
-          aria-checked={selected}
-          className={`condition-row condition-choice ${selected ? "selected" : ""}`}
+          key={item.id}
+          aria-checked={selected===item.id}
+          className={`condition-row condition-choice ${selected===item.id ? "selected" : ""}`}
           onClick={() => {
-            setSelected(true);
+            setSelected(item.id);
             captureEvent("condition_row_selected", "demo");
           }}
         >
-          <span>{condition || "No additional conditions recorded."}</span>
-          <strong>{decision}</strong>
-        </button>
+          <ConditionRowContent
+            condition={item.situation}
+            decision={item.decision}
+          />
+        </button>)}
       </div>
       <div className="match-actions">
-        <Button disabled={!selected} onClick={() => { captureEvent("decision_applied", "demo"); onApply(); }}>
+        <Button disabled={!selectedRow} onClick={() => { if(!selectedRow)return; captureEvent("decision_applied", "demo"); onApply(selectedRow); }}>
           Apply selected decision
         </Button>
         <Button variant="outline" onClick={() => { capturePrecedentRejected("demo",precedentId,matchScore); onReject(); }}>
@@ -181,15 +197,26 @@ function LibraryDecisionCard({
   matchScore: number;
 }) {
   const fragrance = isFragrancePrecedent(entry);
+  const [appliedCondition,setAppliedCondition]=useState<{situation:string;decision:string}|null>(null);
   return (
     <section className="edit-panel" aria-label="Approved library precedent">
       <h2>Closest approved decision</h2>
       <p className="muted">Check that this situation matches yours before applying.</p>
       <h3>{entry.title}</h3>
       <p className="situation-copy">{entry.situation}</p>
-      <div className="rule-box">
+      {(!applied || appliedCondition?.situation) && <div className="rule-box">
         <h4>CONDITIONS — CHECK BEFORE APPLYING</h4>
-        {fragrance ? (
+        {appliedCondition ? (
+          <div className="condition-list" aria-label="Applied condition">
+            <ConditionColumnsHeader />
+            <div className="condition-row">
+              <ConditionRowContent
+                condition={appliedCondition.situation}
+                decision={appliedCondition.decision}
+              />
+            </div>
+          </div>
+        ) : fragrance ? (
           <ConditionSelector
             surface="demo"
             precedentId={entry.id}
@@ -204,6 +231,7 @@ function LibraryDecisionCard({
                 source: "demo" as const,
               };
               void demoUse;
+              setAppliedCondition({situation:row.situation,decision:row.decision});
               onApply();
             }}
           />
@@ -211,13 +239,17 @@ function LibraryDecisionCard({
           <SingleConditionSelector
             condition={entry.exception}
             decision={entry.decision}
-            onApply={onApply}
+            onApply={(selected) => {
+              setAppliedCondition(selected);
+              onApply();
+            }}
             onReject={onReject}
             precedentId={entry.id}
             matchScore={matchScore}
+            rows={entry.conditionRows}
           />
         ) : null}
-      </div>
+      </div>}
       {applied && (
         <>
           <div className="rule-box">
@@ -289,6 +321,7 @@ export function DemoLearningEmployee({
   const activeLibrary = libraryEntries.filter(
     (item) => item.status === "Active",
   );
+  const searchExamples = buildSearchExamples(activeLibrary);
   const libraryWordMatch =
     query && query === text ? findLibraryWordMatch(activeLibrary, query) : null;
   const libraryMeaningMatch =
@@ -307,8 +340,8 @@ export function DemoLearningEmployee({
     );
     return () => cancelAnimationFrame(frame);
   }, [query, match, libraryMatch, pending, applied]);
-  async function check() {
-    const nextQuery = text.trim();
+  async function check(value = text) {
+    const nextQuery = value.trim();
     if (!nextQuery) {
       setError("Describe a fictional situation first.");
       return;
@@ -375,6 +408,7 @@ export function DemoLearningEmployee({
       <p className="intro">
         Find an approved answer for a new exception, or send it for review.
       </p>
+      <p className="mobile-demo-promise">Find an approved answer or send the exception for review.</p>
       <p className="muted">
         Fictional session ·{" "}
         {futureCase ? learningExample.futureCustomer : learningExample.customer}{" "}
@@ -386,7 +420,7 @@ export function DemoLearningEmployee({
         className="search-panel"
         onSubmit={(e) => {
           e.preventDefault();
-          check();
+          void check();
         }}
       >
         <label htmlFor="learning-situation">Describe the situation</label>
@@ -399,6 +433,13 @@ export function DemoLearningEmployee({
             setText(e.target.value);
             setQuery(null);
             setApplied(false);
+          }}
+        />
+        <SearchExamples
+          examples={searchExamples}
+          onSelect={(example) => {
+            setText(example.label);
+            void check(example.label);
           }}
         />
         <div className="search-actions">
@@ -443,8 +484,11 @@ export function DemoLearningEmployee({
         )}
         {query && !checking && !match && !libraryMatch && (
           <section className="edit-panel">
-            <h2>No reliable approved precedent in this demo session</h2>
-            <p className="muted">A submitted case is not approved knowledge.</p>
+            <h2>This situation is new</h2>
+            <p className="muted">
+              Send it to the founder to get an answer. Once answered, everyone
+              can use that decision from then on.
+            </p>
             {pending ? (
               <>
                 <LearningCaseCard item={pending} />
@@ -512,7 +556,7 @@ export function DemoLearningEmployee({
         )}
         {rejected && (
           <section className="edit-panel" role="status">
-            <p>No approved precedent covers this situation yet. Ask the founder.</p>
+            <p>This situation is new. Send it to the founder to get an answer. Once answered, everyone can use that decision from then on.</p>
             {!rejectionSubmitted ? (
               <Button onClick={() => { onSubmit(query || text); captureEvent("escalation_submitted", "demo"); setRejectionSubmitted(true); }}>
                 Send fictional request to the founder

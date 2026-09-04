@@ -15,5 +15,14 @@ export function DemoHeader({ mode = 'demo', onDemo, onFounder, onCos, onStaff }:
       </fieldset>
       <Button variant="link" className="staff-sign-in" onClick={onStaff}>Staff sign-in</Button>
     </div>
+    <details className="mobile-access-menu">
+      <summary>{mode==='demo'?'Demo':mode==='founder'?'Founder (demo)':'CoS (demo)'}</summary>
+      <div className="mobile-access-actions">
+        <Button variant="ghost" onClick={onDemo}>Demo</Button>
+        <Button variant="ghost" onClick={onFounder}>Founder (demo)</Button>
+        <Button variant="ghost" onClick={onCos}>CoS (demo)</Button>
+        <Button variant="link" onClick={onStaff}>Staff sign-in</Button>
+      </div>
+    </details>
   </header>;
 }
