@@ -460,7 +460,7 @@ export function DemoLearningEmployee({
           <Button type="submit">Find an approved decision</Button>
         </div>
       </form>
-      <section className="demo-steps" aria-label="How it works"><div><strong>1. Search</strong><span>Search an approved precedent.</span></div><div><strong>2. Confirm</strong><span>Confirm its conditions.</span></div><div><strong>3. Escalate</strong><span>Send exceptions to the founder queue.</span></div><p>Built for Scentira · Lovish Goyal · <a href="mailto:lovish@scentira.in">lovish@scentira.in</a></p></section>
+      <section className="demo-steps" aria-label="How it works"><div><strong>1. Search</strong><span>Search an approved precedent.</span></div><div><strong>2. Confirm</strong><span>Confirm its conditions.</span></div><div><strong>3. Escalate</strong><span>Send exceptions to the founder queue.</span></div><p>Built for Scentira · Gazal · <a href="mailto:gazal@scentira.in">gazal@scentira.in</a></p></section>
       {state.precedents.length > 0 && <div className="learning-actions">
         <Button
           variant="link"
