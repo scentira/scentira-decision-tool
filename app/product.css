@@ -238,3 +238,4 @@ footer span{display:flex;align-items:center;gap:6px;margin-left:auto}
   white-space: normal;
   text-align: left;
 }
+@media(max-width:640px){.search-examples>div{display:grid;grid-template-columns:1fr}.search-examples button{width:100%;min-height:44px;padding-top:12px;padding-bottom:12px}}

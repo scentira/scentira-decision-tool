@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { demoEntries } from "../lib/public-demo.ts";
 import { buildSearchExamples } from "../lib/search-examples.ts";
+import { readFile } from "node:fs/promises";
 
 test("search examples come from the shortest active situation in each category", () => {
   const examples = buildSearchExamples(demoEntries);
@@ -34,4 +35,10 @@ test("inactive precedents never generate examples", () => {
     },
   ]);
   assert.deepEqual(examples, []);
+});
+
+test("phone example buttons remain stacked with 44px touch targets", async () => {
+  const css = await readFile(new URL("../app/product.css", import.meta.url), "utf8");
+  assert.match(css, /@media\(max-width:640px\)\{\.search-examples>div\{display:grid;grid-template-columns:1fr\}/);
+  assert.match(css, /\.search-examples button\{width:100%;min-height:44px;padding-top:12px;padding-bottom:12px\}/);
 });
