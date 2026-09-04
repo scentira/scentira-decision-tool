@@ -14,7 +14,7 @@ test('animation and landing have accessible static fallbacks without media downl
   const landing=readFileSync(new URL('../components/landing.tsx',import.meta.url),'utf8');
   const animation=readFileSync(new URL('../components/product-demonstration.tsx',import.meta.url),'utf8');
   const css=readFileSync(new URL('../app/product.css',import.meta.url),'utf8');
-  assert.match(landing,/Turn one founder decision into a rule your whole team can reuse\./);
+  assert.match(landing,/Find the founder-approved answer for a new exception/);
   assert.match(landing,/onClick=\{onDemo\}>Try a demo decision/);
   assert.match(animation,/FICTIONAL DEMONSTRATION/);
   assert.match(animation,/className="static-story"/);
@@ -22,10 +22,13 @@ test('animation and landing have accessible static fallbacks without media downl
   assert.match(css,/min-width:761px.*prefers-reduced-motion:no-preference/);
   assert.doesNotMatch(animation,/<audio|<video|<img|<iframe/);
 });
-test('a cold public open starts on the swapped-orders learning loop',()=>{
+test('a cold public open starts with an empty situation and synced examples',()=>{
   const app=readFileSync(new URL('../components/precedent-app.tsx',import.meta.url),'utf8');
+  const learning=readFileSync(new URL('../components/demo-learning.tsx',import.meta.url),'utf8');
   assert.match(app,/const \[showLanding,\s*setShowLanding\]\s*=\s*useState\(false\)/);
-  assert.match(learningExample.situation,/orders were swapped/i);
+  assert.match(learning,/testSituation[\s\S]*: ""/);
+  assert.match(learning,/placeholder="What happened\?"/);
+  assert.doesNotMatch(learning,/Use the original exception/);
 });
 test('complete loop: unmatched → pending → approval → differently worded decision with source',()=>{
   let state=emptyLearningState();

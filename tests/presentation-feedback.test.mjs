@@ -7,8 +7,18 @@ const read=path=>readFile(new URL(path,import.meta.url),'utf8');
 test('first-screen copy states the outcome plainly',async()=>{
  const [learning,landing]=await Promise.all([read('../components/demo-learning.tsx'),read('../components/landing.tsx')]);
  for(const source of [learning,landing]){
-  assert.match(source,/Turn one founder decision into a rule your whole team can reuse\./);
-  assert.match(source,/Find an approved answer for a new exception, or send it for review\./);
+  assert.match(source,/Find the founder-approved answer for a new exception/);
+  assert.match(source,/Describe the situation, check the conditions, apply or escalate\./);
+ }
+});
+
+test('meaning search explains the first model load and later checks',async()=>{
+ const [app,learning,demo]=await Promise.all([read('../components/precedent-app.tsx'),read('../components/demo-learning.tsx'),read('../components/public-demo.tsx')]);
+ for(const source of [app,learning,demo]){
+  assert.match(source,/Loading the matcher for your first search\. This can take up to 10 seconds/);
+  assert.match(source,/Checking your situation/);
+  assert.match(source,/matcherStarted/);
+  assert.match(source,/<Spinner/);
  }
 });
 
@@ -65,12 +75,16 @@ test('applied view keeps the selected condition and never leaves an empty condit
  assert.match(learning,/aria-label="Applied condition"/);
  assert.match(learning,/\(!applied \|\| appliedCondition\?\.situation\)/);
  assert.doesNotMatch(learning,/\{applied \? null : null\}/);
+ assert.match(learning,/<h4>DECISION<\/h4>[\s\S]*appliedCondition\?\.decision/);
+ assert.match(learning,/<strong>General rule<\/strong>[\s\S]*entry\.decision/);
 });
 
 test('phone demo compacts access, copy, input and secondary actions without changing desktop',async()=>{
  const [header,learning,css]=await Promise.all([read('../components/demo-header.tsx'),read('../components/demo-learning.tsx'),read('../app/product.css')]);
  assert.match(header,/mobile-access-menu/);assert.match(header,/Founder \(demo\)/);assert.match(header,/CoS \(demo\)/);assert.match(header,/Staff sign-in/);
  assert.match(learning,/mobile-demo-promise/);assert.match(css,/@media\(max-width:640px\)/);assert.match(css,/min-height:68px;height:68px/);assert.match(css,/learning-actions\{flex-wrap:nowrap/);
+ assert.match(css,/condition-mobile-label\{[^}]*color:var\(--foreground\)/);
+ assert.match(css,/condition-choice\.selected \.condition-mobile-label\{color:var\(--foreground\)\}/);
 });
 
 test('Founder and CoS demo queues explain their different jobs',async()=>{

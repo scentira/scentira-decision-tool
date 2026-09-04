@@ -31,6 +31,7 @@ import {
 } from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
 import { captureEvent, capturePrecedentRejected } from "@/lib/analytics";
+import { Spinner } from "@/components/ui/spinner";
 
 type DemoLibraryEntry = {
   id: string;
@@ -254,6 +255,10 @@ function LibraryDecisionCard({
         <>
           <div className="rule-box">
             <h4>DECISION</h4>
+            <p>{appliedCondition?.decision}</p>
+          </div>
+          <div className="general-rule">
+            <strong>General rule</strong>
             <p>{entry.decision}</p>
           </div>
           <p>
@@ -288,9 +293,7 @@ export function DemoLearningEmployee({
       ? testSituation === learningExample.situation
         ? learningExample.paraphrase
         : testSituation
-      : state.precedents.length
-        ? learningExample.paraphrase
-        : learningExample.situation,
+      : "",
   );
   const [query, setQuery] = useState<string | null>(null);
   const [futureCase, setFutureCase] = useState(state.precedents.length > 0);
@@ -300,11 +303,13 @@ export function DemoLearningEmployee({
   const [rejected, setRejected] = useState(false);
   const [rejectionSubmitted, setRejectionSubmitted] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [firstMatcherLoad, setFirstMatcherLoad] = useState(false);
   const [error, setError] = useState("");
   const [diagnostic, setDiagnostic] = useState<SearchDiagnosticData | null>(
     null,
   );
   const resultRef = useRef<HTMLDivElement>(null);
+  const matcherStarted = useRef(false);
   const wordMatch =
     query && query === text
       ? findLearnedPrecedent(state.precedents, query)
@@ -386,6 +391,8 @@ export function DemoLearningEmployee({
       printSearchDiagnostic(next);
       return;
     }
+    setFirstMatcherLoad(!matcherStarted.current);
+    matcherStarted.current = true;
     setChecking(true);
     const semantic = await findMeaningMatch(nextQuery, candidates, (result) => {
       const next = {
@@ -404,11 +411,11 @@ export function DemoLearningEmployee({
   return (
     <section className="learning-flow" aria-label="Fictional learning loop">
       <div className="eyebrow">TRY THE LEARNING LOOP</div>
-      <h1>Turn one founder decision into a rule your whole team can reuse.</h1>
+      <h1>Find the founder-approved answer for a new exception</h1>
       <p className="intro">
-        Find an approved answer for a new exception, or send it for review.
+        Describe the situation, check the conditions, apply or escalate.
       </p>
-      <p className="mobile-demo-promise">Find an approved answer or send the exception for review.</p>
+      <p className="mobile-demo-promise">Describe the situation, check the conditions, apply or escalate.</p>
       <p className="muted">
         Fictional session ·{" "}
         {futureCase ? learningExample.futureCustomer : learningExample.customer}{" "}
@@ -434,6 +441,7 @@ export function DemoLearningEmployee({
             setQuery(null);
             setApplied(false);
           }}
+          placeholder="What happened?"
         />
         <SearchExamples
           examples={searchExamples}
@@ -446,18 +454,7 @@ export function DemoLearningEmployee({
           <Button type="submit">Find an approved decision</Button>
         </div>
       </form>
-      <div className="learning-actions">
-        <Button
-          variant="link"
-          onClick={() => {
-            setFutureCase(false);
-            setText(learningExample.situation);
-            setQuery(null);
-            setApplied(false);
-          }}
-        >
-          Use the original exception
-        </Button>
+      {state.precedents.length > 0 && <div className="learning-actions">
         <Button
           variant="link"
           onClick={() => {
@@ -469,7 +466,7 @@ export function DemoLearningEmployee({
         >
           Try different wording
         </Button>
-      </div>
+      </div>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -478,8 +475,13 @@ export function DemoLearningEmployee({
       <div ref={resultRef} className="learning-result" aria-live="polite">
         <SearchDiagnostic data={diagnostic} />
         {query && checking && (
-          <section className="edit-panel">
-            <h2>Checking approved precedents by meaning…</h2>
+          <section className="edit-panel search-loading" role="status">
+            <Spinner />
+            <h2>
+              {firstMatcherLoad
+                ? "Loading the matcher for your first search. This can take up to 10 seconds"
+                : "Checking your situation"}
+            </h2>
           </section>
         )}
         {query && !checking && !match && !libraryMatch && (

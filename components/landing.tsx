@@ -10,8 +10,8 @@ export function Landing({onDemo,onFounder,onCos,onStaff}:{onDemo:()=>void;onFoun
       <section className="landing-hero">
         <div className="landing-intro">
           <p className="eyebrow">SCENTIRA · DECISION PRECEDENT TOOL</p>
-          <h1>Turn one founder decision into a rule your whole team can reuse.</h1>
-          <p className="landing-support">Find an approved answer for a new exception, or send it for review.</p>
+          <h1>Find the founder-approved answer for a new exception</h1>
+          <p className="landing-support">Describe the situation, check the conditions, apply or escalate.</p>
           <Button className="landing-primary" onClick={onDemo}>Try a demo decision</Button>
         </div>
         <ProductDemonstration/>

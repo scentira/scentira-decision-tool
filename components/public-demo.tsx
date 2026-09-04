@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,7 @@ import {
 } from "@/components/search-diagnostic";
 import { SearchExamples } from "@/components/search-examples";
 import { buildSearchExamples } from "@/lib/search-examples";
+import { Spinner } from "@/components/ui/spinner";
 
 export function PublicDemo({
   onLogin,
@@ -63,6 +64,7 @@ export function PublicDemo({
   const [meaningMatchScore, setMeaningMatchScore] = useState(1);
   const [rejectedMatch, setRejectedMatch] = useState(false);
   const [searchingMeaning, setSearchingMeaning] = useState(false);
+  const [firstMatcherLoad, setFirstMatcherLoad] = useState(false);
   const [diagnostic, setDiagnostic] = useState<SearchDiagnosticData | null>(
     null,
   );
@@ -73,6 +75,7 @@ export function PublicDemo({
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const matcherStarted = useRef(false);
   const activeEntries = demoEntries.filter(
     (entry) => entry.status === "Active",
   );
@@ -166,6 +169,8 @@ export function PublicDemo({
       captureEvent("precedent_matched", "demo");
       return;
     }
+    setFirstMatcherLoad(!matcherStarted.current);
+    matcherStarted.current = true;
     setSearchingMeaning(true);
     const semantic = await findMeaningMatch(next, candidates, (result) => {
       const report = {
@@ -368,15 +373,18 @@ export function PublicDemo({
             <section className="library-section">
               <SearchDiagnostic data={diagnostic} />
               <div className="section-heading">
-                <h2>
-                  {searchingMeaning
-                    ? "Understanding your question…"
-                    : !rejectedMatch && (learnedPrecedent || results.length)
+                {searchingMeaning ? (
+                  <div className="search-loading" role="status">
+                    <Spinner />
+                    <h2>{firstMatcherLoad ? "Loading the matcher for your first search. This can take up to 10 seconds" : "Checking your situation"}</h2>
+                  </div>
+                ) : <h2>
+                  {!rejectedMatch && (learnedPrecedent || results.length)
                       ? query
                         ? "Closest approved decision"
                         : "Explore decisions"
                       : "This situation is new"}
-                </h2>
+                </h2>}
                 <span>
                   {demoEntries.filter((entry) => entry.status === "Active")
                     .length + learningState.precedents.length}{" "}

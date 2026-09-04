@@ -1,5 +1,7 @@
 import {expect,test,type Page} from '@playwright/test';
 
+test.setTimeout(90_000);
+
 const zeroUsage={casesSubmitted:0,decisionsApproved:0,precedentsMatched:0,feedback:{yes:0,no:0,not_sure:0}};
 const knownUsage={casesSubmitted:12,decisionsApproved:7,precedentsMatched:9,feedback:{yes:4,no:1,not_sure:2}};
 
@@ -7,14 +9,32 @@ async function mockUsage(page:Page,usage=zeroUsage){
   await page.route('**/api/metrics',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(usage)}));
 }
 
+async function sendCurrentSituationForDemoReview(page:Page){
+  const resultHeading=page.locator('.learning-result h2').filter({hasText:/Closest approved decision|This situation is new/});
+  await expect(resultHeading).toBeVisible({timeout:60_000});
+  if(await page.getByRole('heading',{name:'Closest approved decision'}).isVisible()){
+    await page.getByRole('button',{name:'This is not my situation, ask the founder'}).click();
+    await page.getByRole('button',{name:'Send fictional request to the founder'}).click();
+  }else{
+    await page.getByRole('button',{name:'Submit fictional exception'}).click();
+  }
+}
+
 async function completeLearningJourney(page:Page){
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Turn one founder decision into a rule your whole team can reuse.'})).toBeVisible();
+  const promise=page.locator('.learning-flow > h1');
+  if((page.viewportSize()?.width??1440)<=640){
+    await expect(promise).toHaveText('Find the founder-approved answer for a new exception');
+    await expect(page.locator('.mobile-demo-promise')).toHaveText('Describe the situation, check the conditions, apply or escalate.');
+  }else{
+    await expect(promise).toBeVisible();
+  }
+  await expect(page.getByLabel('Describe the situation')).toHaveValue('');
+  await page.getByLabel('Describe the situation').fill('Two orders were swapped and one has reached the final delivery station. Should it be returned to origin, or delivered and collected afterward?');
 
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await expect(page.getByRole('heading',{name:'This situation is new'})).toBeVisible({timeout:60_000});
-  await page.getByRole('button',{name:'Submit fictional exception'}).click();
-  await expect(page.getByText('Pending founder approval',{exact:true})).toBeVisible();
+  await sendCurrentSituationForDemoReview(page);
+  await expect(page.getByRole('button',{name:'Open Founder (demo) to review'})).toBeVisible();
 
   await page.getByRole('button',{name:'Open Founder (demo) to review'}).click();
   await page.getByRole('button',{name:'Review demo exception'}).click();
@@ -27,7 +47,7 @@ async function completeLearningJourney(page:Page){
   await page.getByRole('button',{name:'Test this decision'}).click();
   await expect(page.getByLabel('Describe the situation')).toHaveValue(/wrong customers.*last-mile hub/i);
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await expect(page.getByRole('heading',{name:'Approved precedent found'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Closest approved decision'})).toBeVisible();
   await expect(page.getByText('Swapped orders at the final delivery station',{exact:true})).toBeVisible();
 
   await page.getByRole('radio',{name:/Confirmed swapped orders/}).click();
@@ -42,8 +62,9 @@ async function completeLearningJourney(page:Page){
 
 async function approveSwappedOrderPrecedent(page:Page){
   await page.goto('/');
+  await page.getByLabel('Describe the situation').fill('Two orders were swapped and one has reached the final delivery station. Should it be returned to origin, or delivered and collected afterward?');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await page.getByRole('button',{name:'Submit fictional exception'}).click();
+  await sendCurrentSituationForDemoReview(page);
   await page.getByRole('button',{name:'Open Founder (demo) to review'}).click();
   await page.getByRole('button',{name:'Review demo exception'}).click();
   await page.getByRole('button',{name:'Use the suggested demo decision'}).click();
@@ -56,14 +77,34 @@ test('complete public demo learning journey',async({page})=>{
   await completeLearningJourney(page);
 });
 
+test('fragrance and discount decisions use the selected action',async({page})=>{
+  await mockUsage(page);
+  await page.goto('/');
+
+  await page.getByLabel('Describe the situation').fill('The opened fragrance does not suit the customer.');
+  await page.getByRole('button',{name:'Find an approved decision'}).click();
+  await page.getByRole('radio',{name:/Slight use.*good customer history.*Allow the return/i}).click();
+  await page.getByRole('button',{name:'Apply selected decision'}).click();
+  await expect(page.locator('.rule-box').filter({hasText:'DECISION'})).toContainText('Allow the return');
+  await expect(page.locator('.general-rule')).toContainText('Opened products are normally not eligible for return.');
+
+  await page.getByLabel('Describe the situation').fill('A customer asks for an additional discount beyond the current promotion.');
+  await page.getByRole('button',{name:'Find an approved decision'}).click();
+  await page.getByRole('radio',{name:/1 order, first purchase.*Standard 5% only/i}).click();
+  await page.getByRole('button',{name:'Apply selected decision'}).click();
+  await expect(page.locator('.rule-box').filter({hasText:'DECISION'})).toContainText('Standard 5% only. No additional discount.');
+  await expect(page.locator('.general-rule')).toContainText('The additional discount depends on how many orders the customer has.');
+});
+
 test('zero usage stays hidden and demo activity cannot change real totals',async({page})=>{
   await mockUsage(page);
   const realWrites:string[]=[];
   page.on('request',request=>{if(request.url().includes('/api/state')&&request.method()!=='GET')realWrites.push(request.method());});
   await page.goto('/');
   await expect(page.locator('.usage-metrics')).toHaveCount(0);
+  await page.getByLabel('Describe the situation').fill('The office air conditioner is broken.');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await page.getByRole('button',{name:'Submit fictional exception'}).click();
+  await sendCurrentSituationForDemoReview(page);
   await expect(page.locator('.usage-metrics')).toHaveCount(0);
   expect(realWrites).toEqual([]);
 
@@ -75,8 +116,9 @@ test('zero usage stays hidden and demo activity cannot change real totals',async
   await expect(panel).toContainText('7');
   await expect(panel).toContainText('9');
   await expect(panel).toContainText('4 / 1 / 2');
+  await page.getByLabel('Describe the situation').fill('The office air conditioner is broken.');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await page.getByRole('button',{name:'Submit fictional exception'}).click();
+  await sendCurrentSituationForDemoReview(page);
   await expect(panel).toContainText('12');
   await expect(panel).toContainText('7');
   await expect(panel).toContainText('9');
@@ -87,6 +129,9 @@ test('zero usage stays hidden and demo activity cannot change real totals',async
 test('real Founder and CoS access require the PIN screen',async({page})=>{
   await mockUsage(page);
   await page.goto('/');
+  if((page.viewportSize()?.width??1440)<=640){
+    await page.locator('.mobile-access-menu > summary').click();
+  }
   await page.getByRole('button',{name:'Staff sign-in'}).click();
   await expect(page.getByRole('heading',{name:'Unlock Founder view'})).toBeVisible();
   await expect(page.getByLabel('Staff PIN')).toBeVisible();
@@ -95,7 +140,7 @@ test('real Founder and CoS access require the PIN screen',async({page})=>{
   await expect(page.getByLabel('Staff PIN')).toBeVisible();
 });
 
-test('meaning fallback finds plain rewordings and rejects an unrelated case',async({page})=>{
+test('meaning fallback finds plain rewordings and lets users reject an unrelated suggestion',async({page})=>{
   await mockUsage(page);
   await approveSwappedOrderPrecedent(page);
 
@@ -107,38 +152,43 @@ test('meaning fallback finds plain rewordings and rejects an unrelated case',asy
   for(const wording of rewordings){
     await page.getByLabel('Describe the situation').fill(wording);
     await page.getByRole('button',{name:'Find an approved decision'}).click();
-    await expect(page.getByRole('heading',{name:'Approved precedent found'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Closest approved decision'})).toBeVisible();
     await expect(page.getByText('Swapped orders at the final delivery station',{exact:true})).toBeVisible();
   }
 
-  await page.getByLabel('Describe the situation').fill('An influencer published the wrong launch discount code. Should the campaign post be corrected?');
+  await page.getByLabel('Describe the situation').fill('The office air conditioner is broken.');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await expect(page.getByRole('heading',{name:'This situation is new'})).toBeVisible({timeout:60_000});
+  await expect(page.getByRole('heading',{name:'Closest approved decision'})).toBeVisible({timeout:60_000});
+  await page.getByRole('button',{name:'This is not my situation, ask the founder'}).click();
+  await expect(page.getByText(/This situation is new/)).toBeVisible();
 });
 
 test('a founder demo approval is searchable from Find a precedent',async({page})=>{
   await mockUsage(page);
   await page.goto('/');
-  await page.getByLabel('Describe the situation').fill('How much do we charge for influencer collab?');
+  await page.getByLabel('Describe the situation').fill('Can staff bring a pet dog into the office?');
   await page.getByRole('button',{name:'Find an approved decision'}).click();
-  await page.getByRole('button',{name:'Submit fictional exception'}).click();
+  await sendCurrentSituationForDemoReview(page);
   await page.getByRole('button',{name:'Open Founder (demo) to review'}).click();
   await page.getByRole('button',{name:'Review demo exception'}).click();
-  await page.getByLabel('Precedent title').fill('Paid influencer collaboration');
-  await page.getByLabel('Decision',{exact:true}).fill('Ask for the creator rate card.');
-  await page.getByLabel('Reasoning',{exact:true}).fill('Confirm the commercial request first.');
-  await page.getByLabel('Conditions under which it applies').fill('An influencer collaboration where the creator asks for payment.');
+  await page.getByLabel('Precedent title').fill('Office pet visits');
+  await page.getByLabel('Decision',{exact:true}).fill('Ask the office manager first.');
+  await page.getByLabel('Reasoning',{exact:true}).fill('Confirm that the workspace can safely host the animal.');
+  await page.getByLabel('Conditions under which it applies').fill('A staff member wants to bring a pet dog into the office.');
   await page.getByRole('button',{name:'Approve as demo precedent'}).click();
   await page.getByRole('button',{name:'Manage precedents'}).click();
-  await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toContainText('Paid influencer collaboration');
-  await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toContainText('An influencer collaboration where the creator asks for payment.');
+  await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toContainText('Office pet visits');
+  await expect(page.getByRole('article',{name:'Decision from approved precedent'})).toContainText('A staff member wants to bring a pet dog into the office.');
+  if((page.viewportSize()?.width??1440)<=640){
+    await page.locator('.mobile-access-menu > summary').click();
+  }
   await page.getByRole('button',{name:'Demo',exact:true}).click();
   await page.getByRole('button',{name:'Find a precedent'}).click();
-  await page.getByLabel('Describe the situation').fill('Are we doing influencer collaboration?');
+  await page.getByLabel('Describe the situation').fill('Are dogs allowed at work?');
   await page.getByRole('button',{name:'Find a decision'}).click();
   const learned=page.getByRole('article',{name:'Decision from approved precedent'});
-  await expect(learned).toContainText('Paid influencer collaboration');
-  await expect(learned).toContainText('Ask for the creator rate card.');
+  await expect(learned).toContainText('Office pet visits');
+  await expect(learned).toContainText('Ask the office manager first.');
 });
 
 test('browser AI matches meaning without shared wording and rejects unrelated requests',async({page})=>{

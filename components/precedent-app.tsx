@@ -74,6 +74,7 @@ import {
   ConditionSummary,
 } from "@/components/condition-selector";
 import { isFragrancePrecedent } from "@/lib/fragrance-conditions";
+import { Spinner } from "@/components/ui/spinner";
 
 type Snapshot = {
   entries: Entry[];
@@ -629,6 +630,7 @@ export default function PrecedentApp({
   const [meaningEntryScore, setMeaningEntryScore] = useState(1);
   const [rejectedMatch, setRejectedMatch] = useState(false);
   const [searchingMeaning, setSearchingMeaning] = useState(false);
+  const [firstMatcherLoad, setFirstMatcherLoad] = useState(false);
   const [searchDiagnostic, setSearchDiagnostic] =
     useState<SearchDiagnosticData | null>(null);
   const [access, setAccess] = useState(false);
@@ -652,6 +654,7 @@ export default function PrecedentApp({
   const [creatingPrecedent, setCreatingPrecedent] = useState(false);
   const authVersion = useRef(0);
   const lastPageviewSurface = useRef<string | null>(null);
+  const matcherStarted = useRef(false);
   const request = useCallback(
     <T,>(path: string, body?: unknown, method = "POST") =>
       apiRequest<T>(path, body, method, teamWorkspace),
@@ -941,6 +944,8 @@ export default function PrecedentApp({
       void recordRealMatch();
       return;
     }
+    setFirstMatcherLoad(!matcherStarted.current);
+    matcherStarted.current = true;
     setSearchingMeaning(true);
     const semantic = await findMeaningMatch(nextQuery, candidates, (result) => {
       const report = {
@@ -1325,15 +1330,20 @@ export default function PrecedentApp({
             {!loadError && (
               <section className="library-section">
                 <div className="section-heading">
-                  <h2>
-                    {query === null
-                      ? "From your precedent library"
-                      : searchingMeaning
-                        ? "Checking approved precedents by meaning…"
+                  {searchingMeaning ? (
+                    <div className="search-loading" role="status">
+                      <Spinner />
+                      <h2>{firstMatcherLoad ? "Loading the matcher for your first search. This can take up to 10 seconds" : "Checking your situation"}</h2>
+                    </div>
+                  ) : (
+                    <h2>
+                      {query === null
+                        ? "From your precedent library"
                         : learnedSearchMatch || matches.length
                           ? "Closest approved decision"
                           : "This situation is new"}
-                  </h2>
+                    </h2>
+                  )}
                   <span>
                     {active.length + (demoLearning?.precedents.length || 0)}{" "}
                     ACTIVE RULES · 3 CATEGORIES
