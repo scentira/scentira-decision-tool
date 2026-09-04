@@ -164,6 +164,30 @@ test('real Founder and CoS access require the PIN screen',async({page})=>{
   await expect(page.getByLabel('Staff PIN')).toBeVisible();
 });
 
+test('Founder demo review is interactive and never writes to real state',async({page})=>{
+  await mockUsage(page);
+  const stateWrites:string[]=[];
+  page.on('request',request=>{if(request.url().includes('/api/state')&&request.method()!=='GET')stateWrites.push(`${request.method()} ${request.url()}`);});
+  await page.goto('/');
+  if((page.viewportSize()?.width??1440)<=640)await page.locator('.mobile-access-menu > summary').click();
+  await page.getByRole('button',{name:'Founder (demo)'}).click();
+  await page.getByRole('button',{name:'Review CoS decision'}).click();
+  const fieldset=page.locator('fieldset.demo-fields');
+  await expect(fieldset).not.toBeDisabled();
+  await fieldset.locator('textarea').first().fill('Proceed only if the creator accepts an ongoing partnership discussion.');
+  await fieldset.locator('select').selectOption('no');
+  const submit=fieldset.locator('button[type="submit"]');
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(page.getByText('Fictional decision saved for this session.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Pending (2)'})).toBeVisible();
+  expect(stateWrites).toEqual([]);
+  await page.reload();
+  if((page.viewportSize()?.width??1440)<=640)await page.locator('.mobile-access-menu > summary').click();
+  await page.getByRole('button',{name:'Founder (demo)'}).click();
+  await expect(page.getByRole('button',{name:'Pending (3)'})).toBeVisible();
+});
+
 test('meaning fallback finds plain rewordings and lets users reject an unrelated suggestion',async({page})=>{
   await mockUsage(page);
   await approveSwappedOrderPrecedent(page);
